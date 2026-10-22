@@ -1,0 +1,146 @@
+// The 100-crop collection, stored as data. Each row:
+// [name, sprite template, rarity, category, grow hours, base harvest value,
+//  main colour, accent colour, leaf colour|null, min seed tier, fx|null, description]
+// Sprites are generated from the template + colours (see src/art/).
+
+const G = null; // default leaf green
+
+const ROWS = [
+  // ---------------- Common (30) ----------------
+  ['Sunny Daisy', 'daisy', 'common', 'flower', 1, 12, '#fdf6e3', '#ffc93c', G, 1, null, 'Always smiling, even on cloudy days.'],
+  ['Pink Tulip', 'tulip', 'common', 'flower', 1.25, 14, '#f78fb3', '#ffd1e1', G, 1, null, 'A cheerful cup of spring.'],
+  ['Garden Carrot', 'carrot', 'common', 'produce', 1.5, 16, '#f28c28', '#ffd08a', G, 1, null, 'Crunchy, sweet and bunny-approved.'],
+  ['Cherry Tomato', 'tomato', 'common', 'produce', 1.25, 14, '#e63946', '#ffb4a2', G, 1, null, 'Pops like summer when you bite it.'],
+  ['Sweet Pea Pod', 'peapod', 'common', 'produce', 1.5, 16, '#8fd16a', '#d9f7b0', G, 1, null, 'Five little peas, snug in a row.'],
+  ['Button Radish', 'bulb', 'common', 'produce', 1, 12, '#e8486b', '#fff4f4', G, 1, null, 'Small, round and a little bit spicy.'],
+  ['Cornflower', 'pom', 'common', 'flower', 1.5, 15, '#4c7ce0', '#a9c6ff', G, 1, null, 'The bluest blue of the meadow.'],
+  ['Marigold', 'pom', 'common', 'flower', 1.25, 14, '#f6a01a', '#ffe08a', G, 1, null, 'Keeps the pests politely away.'],
+  ['Butter Lettuce', 'cabbage', 'common', 'produce', 1.75, 18, '#9fd86b', '#e4ffc2', G, 1, null, 'Soft leaves, perfect for sandwiches.'],
+  ['Yellow Onion', 'bulb', 'common', 'produce', 1.75, 17, '#d9a441', '#f7e0a8', G, 1, null, 'Layers upon layers of flavour.'],
+  ['Four-Leaf Clover', 'clover', 'common', 'flower', 2, 20, '#4fbf5a', '#b9f5a6', '#3e9a4a', 1, null, 'Lucky, and it knows it.'],
+  ['Dandelion Puff', 'puff', 'common', 'flower', 1, 12, '#f4f1ea', '#ffffff', G, 1, null, 'Make a wish and blow!'],
+  ['Buttercup', 'tulip', 'common', 'flower', 1, 13, '#ffd23f', '#fff3a8', G, 1, null, 'Hold it under your chin to check for butter.'],
+  ['Wild Strawberry', 'strawberry', 'common', 'produce', 2, 21, '#e8364f', '#fff07a', G, 1, null, 'Tiny, fragrant and gone in a second.'],
+  ['Blueberry Bunch', 'berries', 'common', 'produce', 2, 20, '#4a6fd8', '#a8c2ff', G, 1, null, 'Dusty blue and bursting with juice.'],
+  ['Green Pepper', 'pepper', 'common', 'produce', 1.5, 16, '#4caf50', '#b6f0a0', '#2e7d32', 1, null, 'Crisp, bright and mild.'],
+  ['Sweet Violet', 'poppy', 'common', 'flower', 1.25, 14, '#8e5bd6', '#ffe27a', G, 1, null, 'Shy, but smells wonderful.'],
+  ['Garden Mint', 'herb', 'common', 'produce', 1, 12, '#c8a8f0', '#f0e4ff', '#4fc27a', 1, null, 'Will happily take over the whole bed.'],
+  ['Bluebell', 'bell', 'common', 'flower', 1.5, 16, '#5b7ff0', '#ffffff', G, 1, null, 'Rings silently for the fairies.'],
+  ['Field Poppy', 'poppy', 'common', 'flower', 1.25, 14, '#e8402e', '#2a2230', G, 1, null, 'Papery petals that dance in the breeze.'],
+  ['Button Mushroom', 'mushroom', 'common', 'produce', 1, 13, '#efe2cf', '#c9a882', G, 1, null, 'Pops up overnight after rain.'],
+  ['Tiny Sunflower', 'sunflower', 'common', 'flower', 2.5, 24, '#ffcd2e', '#7a4a24', G, 1, null, 'Follows the sun with its little face.'],
+  ['Spinach Bunch', 'cabbage', 'common', 'produce', 1.5, 15, '#3f9d4a', '#8fdc7a', '#2f7a3a', 1, null, 'Makes you strong, apparently.'],
+  ['Snowdrop', 'bell', 'common', 'flower', 1, 12, '#f3f6ff', '#9ad97a', G, 1, null, 'The first flower to brave the frost.'],
+  ['Crab Apple', 'tomato', 'common', 'produce', 2, 20, '#d93a3a', '#ffd0b0', '#4f9a3a', 1, null, 'Tart enough to make you squint.'],
+  ['Sweet Corn', 'corn', 'common', 'produce', 2.5, 23, '#f6d55c', '#fff2a8', '#7cc35a', 1, null, 'Golden kernels in a leafy jacket.'],
+  ['Sweet Basil', 'herb', 'common', 'produce', 1.25, 13, '#f4f4f4', '#ffffff', '#3eaa4f', 1, null, 'Smells like pizza night.'],
+  ['Snow Turnip', 'bulb', 'common', 'produce', 2, 19, '#f0e8f8', '#b07ad8', G, 1, null, 'White as snow with a purple blush.'],
+  ['Red Clover', 'pom', 'common', 'flower', 1.75, 17, '#e05a8a', '#ffc0d8', G, 1, null, 'The bees\' favourite snack.'],
+  ['Meyer Lemon', 'pear', 'common', 'produce', 2.25, 22, '#ffe14d', '#fff7b8', G, 1, null, 'Sunshine you can squeeze.'],
+
+  // ---------------- Uncommon (25) ----------------
+  ['Velvet Rose', 'rose', 'uncommon', 'flower', 3, 48, '#d7263d', '#ff9aa8', G, 1, null, 'Soft as velvet, sharp as a thorn.'],
+  ['Lavender Spike', 'lavender', 'uncommon', 'flower', 2.5, 40, '#9b7be0', '#d8c8ff', G, 1, null, 'A calming scent for sleepy afternoons.'],
+  ['Royal Eggplant', 'eggplant', 'uncommon', 'produce', 3, 46, '#6b3fa0', '#b994e6', G, 1, null, 'Glossy purple, fit for a king.'],
+  ['Harvest Pumpkin', 'pumpkin', 'uncommon', 'produce', 4, 62, '#f08a24', '#ffd08a', G, 1, null, 'Round, ribbed and ready for pie.'],
+  ['Picnic Watermelon', 'melon', 'uncommon', 'produce', 4, 64, '#3fa34d', '#a6e88a', G, 1, null, 'Heavy with summer sweetness.'],
+  ['Purple Carrot', 'carrot', 'uncommon', 'produce', 2.5, 40, '#8a3fbf', '#e0a8ff', G, 1, null, 'The original carrot colour, they say.'],
+  ['Ruby Chard', 'herb', 'uncommon', 'produce', 2, 34, '#ff5a6e', '#ffd0d8', '#c23a5a', 1, null, 'Ruby stems and crinkly leaves.'],
+  ['Blue Hydrangea', 'cluster', 'uncommon', 'flower', 3, 46, '#6f9bf0', '#c8dcff', G, 1, null, 'A hundred tiny flowers in one ball.'],
+  ['Lilac Plume', 'cluster', 'uncommon', 'flower', 2.5, 40, '#c08fe8', '#f0dcff', G, 1, null, 'Smells like the end of spring.'],
+  ['Tiger Lily', 'lily', 'uncommon', 'flower', 3, 47, '#f57a2a', '#4a2a1a', G, 1, null, 'Spotted and fierce, but friendly.'],
+  ['Moth Orchid', 'orchid', 'uncommon', 'flower', 3.5, 54, '#f5b8e0', '#c23a8a', G, 1, null, 'Elegant wings that never fly away.'],
+  ['Bell Pepper', 'pepper', 'uncommon', 'produce', 2.5, 38, '#e63b2e', '#ffb0a0', G, 1, null, 'Sweet, crunchy and very red.'],
+  ['Golden Beet', 'bulb', 'uncommon', 'produce', 2, 34, '#f2b632', '#ffe9a0', G, 1, null, 'Earthy sweetness with a golden glow.'],
+  ['Shiitake', 'mushroom', 'uncommon', 'produce', 2, 33, '#9a6038', '#e8c8a0', G, 1, null, 'Rich, savoury and a little bit fancy.'],
+  ['Concord Grapes', 'berries', 'uncommon', 'produce', 3, 48, '#6a3d9a', '#c6a2f0', G, 1, null, 'Perfect for jam on toast.'],
+  ['Honeydew', 'melon', 'uncommon', 'produce', 3.5, 55, '#c8e88a', '#f2ffd0', G, 1, null, 'Pale, sweet and honey-scented.'],
+  ['Cactus Bloom', 'cactus', 'uncommon', 'flower', 3, 46, '#ff7ab8', '#ffd0e8', '#4fa857', 1, null, 'Prickly outside, pretty on top.'],
+  ['Pink Dahlia', 'pom', 'uncommon', 'flower', 2.5, 40, '#ff6fae', '#ffd0e6', G, 1, null, 'Petals arranged with perfect geometry.'],
+  ['Chili Pepper', 'pepper', 'uncommon', 'produce', 2, 34, '#d61f1f', '#ffcf5a', G, 1, null, 'Small but extremely confident.'],
+  ['Red Cabbage', 'cabbage', 'uncommon', 'produce', 3, 47, '#8a3f9a', '#d8a8e8', '#6a5aa0', 1, null, 'Turns blue if you cook it wrong.'],
+  ['Giant Sunflower', 'sunflower', 'uncommon', 'flower', 4, 63, '#ffb81c', '#5a3218', G, 1, null, 'Taller than the fence and proud of it.'],
+  ['Fairy Clover', 'clover', 'uncommon', 'fantasy', 3, 45, '#8fe0c8', '#ffffff', '#3fb59a', 1, 'sparkle', 'Fairies use it as an umbrella.'],
+  ['Golden Pear', 'pear', 'uncommon', 'produce', 3, 46, '#d4c440', '#f8f0a0', G, 1, null, 'Buttery, juicy and gently speckled.'],
+  ['Giant Strawberry', 'strawberry', 'uncommon', 'produce', 3.5, 54, '#ff3b5c', '#fff4a8', G, 1, null, 'Needs two hands to hold.'],
+  ['Water Lily', 'lotus', 'uncommon', 'flower', 3.5, 55, '#ffb3d1', '#ffe680', '#3a9a6a', 1, null, 'Floats serenely on its lily pad.'],
+
+  // ---------------- Rare (20) ----------------
+  ['Moonflower', 'moon', 'rare', 'magic', 4.5, 125, '#dfe8ff', '#ffe98a', '#4a8f8a', 1, 'glow', 'Opens only when the moon is watching.'],
+  ['Glow Tulip', 'tulip', 'rare', 'fantasy', 3.5, 100, '#5ef0e0', '#e0fffb', G, 1, 'glow', 'A natural night light.'],
+  ['Crystal Sprout', 'crystal', 'rare', 'magic', 5, 140, '#7ad7ff', '#e6f8ff', G, 1, 'sparkle', 'Grows facets instead of leaves.'],
+  ['Star Blossom', 'star', 'rare', 'magic', 4, 115, '#ffe05a', '#fff8c8', G, 1, 'sparkle', 'Fell from the sky and took root.'],
+  ['Fire Lily', 'flame', 'rare', 'fantasy', 4, 115, '#ff6a2a', '#ffd23f', G, 1, 'glow', 'Warm to the touch, never burns.'],
+  ['Cloud Cotton', 'puff', 'rare', 'fantasy', 3.5, 100, '#cfe6ff', '#ffffff', '#6aa8c8', 1, null, 'A little piece of sky on a stem.'],
+  ['Heartleaf Blossom', 'heart', 'rare', 'fantasy', 4, 118, '#ff6f9e', '#ffd0e0', G, 1, null, 'Grows best when you talk to it kindly.'],
+  ['Bubble Pod', 'bubble', 'rare', 'fantasy', 4.5, 128, '#8fd8ff', '#ffffff', G, 1, null, 'Pop one and it giggles.'],
+  ['Fiddlehead Fern', 'spiral', 'rare', 'flower', 3.5, 98, '#7bd36a', '#d0f7a8', '#3e8f45', 1, null, 'Unfurls like a tiny green violin.'],
+  ['Lantern Fruit', 'lantern', 'rare', 'fantasy', 5, 142, '#ff9a3c', '#ffe08a', G, 1, 'glow', 'Lights the path for lost hedgehogs.'],
+  ['Midnight Rose', 'rose', 'rare', 'flower', 5, 145, '#3d2a6a', '#8a6fd0', G, 2, null, 'As dark and deep as a starless night.'],
+  ['Blue Pumpkin', 'pumpkin', 'rare', 'produce', 5.5, 155, '#5a8fd8', '#b8d8ff', G, 1, null, 'Cinderella would approve.'],
+  ['Candy Corn', 'corn', 'rare', 'fantasy', 4, 112, '#ff9d2e', '#fff1e0', '#8fbf4a', 1, null, 'Grows its own sugar coating.'],
+  ['Frost Berries', 'berries', 'rare', 'fantasy', 4.5, 126, '#b8ecff', '#ffffff', '#5ab0c0', 1, 'sparkle', 'Cold, crisp and slightly minty.'],
+  ['Jelly Mushroom', 'mushroom', 'rare', 'fantasy', 4, 115, '#ff8ad8', '#ffd8f2', G, 1, null, 'Wobbles when the wind blows.'],
+  ['Sapphire Orchid', 'orchid', 'rare', 'flower', 5, 140, '#3f6fe0', '#ffe27a', G, 1, null, 'Treasured by collectors everywhere.'],
+  ['Silver Bells', 'bell', 'rare', 'magic', 4, 112, '#d8e0f0', '#fff7c0', '#6a8f9a', 1, 'sparkle', 'You can almost hear them chime.'],
+  ['Peacock Poppy', 'poppy', 'rare', 'fantasy', 4.5, 125, '#20a8a0', '#2a3a8a', G, 1, null, 'Shows off every single morning.'],
+  ['Ghost Pepper', 'pepper', 'rare', 'fantasy', 5.5, 160, '#f0f0ff', '#b8a8ff', '#6a7a9a', 1, null, 'Boo! (It is also very spicy.)'],
+  ['Golden Melon', 'melon', 'rare', 'produce', 6, 168, '#f6c83d', '#fff0a0', G, 2, 'sparkle', 'Rings like a bell when tapped.'],
+
+  // ---------------- Epic (13) ----------------
+  ['Aurora Fern', 'spiral', 'epic', 'magic', 6, 300, '#5ff0b0', '#b8a0ff', '#3a8f8a', 1, 'glow', 'Shimmers with northern lights.'],
+  ['Ruby Crystal Bush', 'crystal', 'epic', 'magic', 7, 360, '#ff4a6a', '#ffd0d8', G, 2, 'sparkle', 'Each crystal hums a different note.'],
+  ['Starlight Lily', 'lily', 'epic', 'magic', 6.5, 330, '#c8b8ff', '#fff8a0', G, 1, 'sparkle', 'Collects starlight in its petals.'],
+  ['Ember Rose', 'rose', 'epic', 'magic', 7, 355, '#ff5a1f', '#ffd23f', G, 1, 'glow', 'Its petals flicker like a campfire.'],
+  ['Thunder Bulb', 'lantern', 'epic', 'magic', 7.5, 380, '#ffe23a', '#ffffff', '#4a6aa0', 3, 'glow', 'Crackles softly before a storm.'],
+  ['Mermaid Kelp', 'spiral', 'epic', 'fantasy', 6, 305, '#2ac8c0', '#a0fff0', '#2a7a9a', 1, null, 'Somehow smells like the ocean.'],
+  ['Dreamcap Mushroom', 'mushroom', 'epic', 'magic', 6.5, 335, '#9a5ae0', '#ffe0ff', G, 1, 'sparkle', 'Sleep near it for the sweetest dreams.'],
+  ['Comet Squash', 'pumpkin', 'epic', 'magic', 8, 410, '#2ab8c8', '#fff6a0', G, 3, 'sparkle', 'Leaves a faint trail of stardust.'],
+  ['Galaxy Berries', 'berries', 'epic', 'magic', 8, 405, '#3a2a7a', '#ffe8ff', '#4a5aa0', 2, 'sparkle', 'Each berry holds a tiny universe.'],
+  ['Sugar Cloud', 'puff', 'epic', 'fantasy', 6, 300, '#ffc0e0', '#ffffff', '#c88ab0', 1, null, 'Tastes exactly like candy floss.'],
+  ['Twilight Tulip', 'tulip', 'epic', 'magic', 7, 350, '#6a4ad0', '#ff9ad8', G, 1, 'glow', 'Holds the colours of dusk all day.'],
+  ['Prism Cactus', 'cactus', 'epic', 'magic', 8.5, 430, '#8af0ff', '#ffffff', '#7aa8e0', 3, 'sparkle', 'Splits sunlight into rainbows.'],
+  ['Sunset Lotus', 'lotus', 'epic', 'magic', 9, 470, '#ff8a5a', '#ffd86a', '#3a8a6a', 3, 'glow', 'Blooms in the colours of evening.'],
+
+  // ---------------- Legendary (7) ----------------
+  ['Sunstone Sunflower', 'sunflower', 'legendary', 'magic', 10, 1100, '#ffd700', '#c2410c', G, 1, 'glow', 'Radiates the warmth of a hundred summers.'],
+  ['Diamond Rose', 'rose', 'legendary', 'magic', 11, 1250, '#d8f8ff', '#8ad8ff', '#5a9ab0', 2, 'sparkle', 'Harder than steel, softer than silk.'],
+  ['Moonpetal Orchid', 'orchid', 'legendary', 'magic', 10, 1150, '#e8e0ff', '#8a6fe0', '#5a7a9a', 3, 'glow', 'Said to bloom once a century.'],
+  ['Wishing Star', 'star', 'legendary', 'magic', 9, 1000, '#ff9ad8', '#fff8c8', G, 1, 'sparkle', 'Whisper a wish before you harvest.'],
+  ['Crystal Elder', 'tree', 'legendary', 'magic', 12, 1400, '#8af0ff', '#ffffff', '#7a6a9a', 3, 'sparkle', 'An ancient tree of living crystal.'],
+  ['Wisp Lantern', 'lantern', 'legendary', 'magic', 10.5, 1200, '#a0fff0', '#ffffff', '#4a8a9a', 2, 'glow', 'A friendly will-o\'-the-wisp lives inside.'],
+  ['Heart of the Forest', 'heart', 'legendary', 'magic', 11, 1300, '#3fd07a', '#ffe680', '#2a7a4a', 3, 'glow', 'Beats softly in time with the woods.'],
+
+  // ---------------- Ultra Rare (5) ----------------
+  ['Rainbow Lotus', 'rainbowLotus', 'ultra', 'magic', 14, 5200, '#ff6f8a', '#ffe14d', '#3a9a7a', 1, 'rainbow', 'Every petal is a different colour of joy.'],
+  ['Phoenix Bloom', 'phoenix', 'ultra', 'magic', 15, 5600, '#ff6a2a', '#ffd23f', '#a8401a', 1, 'glow', 'Reborn from its own golden embers.'],
+  ['Starfall Sapling', 'starfall', 'ultra', 'magic', 16, 6000, '#5a4ad0', '#fff6a0', '#3a3a8a', 1, 'sparkle', 'A tiny tree that grows real stars.'],
+  ['Dragon\'s Eye Orchid', 'dragonEye', 'ultra', 'magic', 13, 4800, '#2ac87a', '#ffd23f', '#1a6a4a', 1, 'glow', 'It blinks. Just once. When you are not looking.'],
+  ['Crown of Dawn', 'crown', 'ultra', 'magic', 12, 4500, '#ffd23f', '#ff7ab8', '#4a9a5a', 1, 'sparkle', 'Worn by the first ray of morning light.'],
+];
+
+export const CROPS = ROWS.map((r, i) => ({
+  id: i + 1,
+  key: r[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+  name: r[0],
+  template: r[1],
+  rarity: r[2],
+  category: r[3],
+  hours: r[4],
+  value: r[5],
+  colors: { main: r[6], accent: r[7], leaf: r[8] || '#5dbb4c' },
+  minTier: r[9],
+  fx: r[10],
+  desc: r[11],
+}));
+
+export const CROP_BY_ID = Object.fromEntries(CROPS.map((c) => [c.id, c]));
+
+// Ultra-rare first harvests award a unique permanent decoration.
+export const ULTRA_TROPHY = {
+  96: 'trophy-rainbow',
+  97: 'trophy-phoenix',
+  98: 'trophy-starfall',
+  99: 'trophy-dragon',
+  100: 'trophy-dawn',
+};

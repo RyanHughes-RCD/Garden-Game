@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Little Garden</title>
+  <meta name="description" content="A cute pixel-art idle gardening and collection game. Plant mystery seeds, discover 100 crops and decorate your garden.">
+  <meta name="theme-color" content="#5a9a3a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Little Garden">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preload" href="assets/fonts/PixelifySans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="coins" id="coin-counter" aria-label="Coins">
+        <span class="coin-icon" data-sprite="coin"></span>
+        <span class="coin-value" id="coin-value">0</span>
+      </div>
+      <div class="garden-title" id="garden-title">Little Garden</div>
+      <button class="chip score-chip" id="score-chip" aria-label="Decoration score">
+        <span data-sprite="star"></span><span id="score-value">0</span>
+      </button>
+    </header>
+    <main id="screen" tabindex="-1"></main>
+    <nav class="tabbar" id="tabbar">
+      <button data-tab="garden" class="active"><span data-sprite="nav-garden"></span><b>Garden</b></button>
+      <button data-tab="seeds"><span data-sprite="nav-seeds"></span><b>Seeds</b></button>
+      <button data-tab="collection"><span data-sprite="nav-book"></span><b>Collection</b></button>
+      <button data-tab="decor"><span data-sprite="nav-decor"></span><b>Decor</b></button>
+      <button data-tab="records"><span data-sprite="nav-records"></span><b>Records</b></button>
+    </nav>
+  </div>
+  <div id="layer"></div>
+  <div id="toasts" aria-live="polite"></div>
+  <noscript><p class="noscript">Little Garden needs JavaScript to grow.</p></noscript>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
