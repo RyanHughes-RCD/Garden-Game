@@ -1,114 +1,49 @@
-// Celebration and event modals: planting reveal, harvest, visitors, bonuses.
-import { h, clear } from './dom.js';
+// Celebration and event modals: planting, harvest, visitors, bonuses.
+import { h } from './dom.js';
 import { app, openModal, closeOverlay } from './app.js';
 import * as G from '../core/game.js';
-import { RARITIES, RARITY_INFO, BONUS_TYPES, WATERING, SEED_TIERS } from '../data/config.js';
-import { CROPS, CROP_BY_ID } from '../data/crops.js';
+import { RARITY_INFO, BONUS_TYPES, WATERING, SEED_TIERS } from '../data/config.js';
+import { CROP_BY_ID } from '../data/crops.js';
 import { DECOR_BY_ID } from '../data/decorations.js';
-import { INK } from '../art/pixel.js';
-import { cropSilhouette, uiGrid } from '../art/sprites.js';
+import { stageGrid, STAGE_NAMES } from '../art/sprites.js';
 import { PACKET_FOR_TIER } from '../art/uiArt.js';
 import {
-  img, uiImg, cropImg, decorImg, visitorImg, gridURL, rarityTag, stars, fmtNum, fmtDuration, fmtClock,
+  img, uiImg, cropImg, decorImg, visitorImg, rarityTag, stars, fmtNum, fmtDuration, fmtClock,
 } from './render.js';
 import { sfx } from './audio.js';
 import { startPlacing } from './garden.js';
 
-const RARITY_SYMBOL = { common: 'seed', uncommon: 'drop', rare: 'heart', epic: 'sparkle', legendary: 'star', ultra: 'star' };
-const SYMBOLS = ['seed', 'drop', 'heart', 'sparkle', 'star', 'coin'];
 
 function rayColor(r) {
   return { common: '#e8f8d0', uncommon: '#d0f0ff', rare: '#e8dcff', epic: '#ffd8ea', legendary: '#fff0b0', ultra: '#ffd0e0' }[r];
 }
 
-// ---------------------------------------------------------------- planting reveal
+// ---------------------------------------------------------------- planting
 
-export function showPlantReveal(res, tierId, { onWater } = {}) {
-  const crop = res.crop;
+// Planting gives nothing away: the seed drops into the soil and a seedling
+// appears. What it grows into is for the player to watch and guess.
+export function showPlanted(res, tierId, { onWater } = {}) {
   const tier = SEED_TIERS.find((t) => t.id === tierId);
-  const slot = h('div', { class: 'slot spinning' });
-  const reelImg = img(cropSilhouette(CROPS[0].id, '#fff'));
-  slot.append(reelImg);
-  const symbolBoxes = [0, 1, 2].map(() => h('span', {}, uiImg('seed')));
-  const label = h('div', { class: 'slot-label' }, '...');
-  const info = h('div', {});
-  const buttons = h('div', { class: 'btn-row', style: { marginTop: '10px' } });
-  const body = h('div', { onclick: () => skip() },
-    h('div', { class: 'muted small' }, uiImg(PACKET_FOR_TIER[tierId]), ` Planting a ${tier.name}`),
-    slot,
-    h('div', { class: 'slot-symbols' }, symbolBoxes),
-    label, info, buttons);
-  body.querySelector('.muted img').style.cssText = 'width:24px;height:24px;vertical-align:middle';
-  const entry = openModal(body, { dismissable: false });
-
-  const delays = [];
-  let d = 45;
-  for (let i = 0; i < 22; i++) { delays.push(d); d *= 1.11; }
-  let step = 0;
-  let timer = null;
-  let done = false;
-
-  const spinFrame = () => {
-    const rnd = CROPS[Math.floor(Math.random() * CROPS.length)];
-    const r = RARITIES[Math.floor(Math.random() * RARITIES.length)];
-    reelImg.src = gridURL(cropSilhouette(rnd.id, RARITY_INFO[r].color));
-    slot.style.setProperty('--frame', RARITY_INFO[r].color);
-    label.textContent = RARITY_INFO[r].name;
-    label.style.color = RARITY_INFO[r].dark;
-    symbolBoxes.forEach((b, k) => {
-      if (step > 12 + k * 3) return; // reels stop one by one
-      b.firstChild.src = gridURL(uiGrid(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]));
-    });
-    if (step % 2 === 0) sfx('tick');
-  };
-
-  const next = () => {
-    if (done) return;
-    spinFrame();
-    step += 1;
-    if (step >= delays.length) return land();
-    timer = setTimeout(next, delays[step]);
-  };
-
-  function land() {
-    if (done) return;
-    done = true;
-    clearTimeout(timer);
-    const info2 = RARITY_INFO[crop.rarity];
-    slot.classList.remove('spinning');
-    slot.classList.add('landed');
-    slot.style.setProperty('--frame', info2.color);
-    slot.style.background = crop.rarity === 'ultra' ? 'linear-gradient(135deg,#ff6f8a,#ffd23f,#6ee07a,#4fb3ff,#b57aff)' : info2.color;
-    reelImg.src = gridURL(cropSilhouette(crop.id, INK));
-    symbolBoxes.forEach((b) => {
-      b.firstChild.src = gridURL(uiGrid(RARITY_SYMBOL[crop.rarity]));
-      b.style.background = info2.color;
-    });
-    label.textContent = `${info2.name}!`;
-    label.style.color = info2.dark;
-    sfx(['legendary', 'ultra', 'epic'].includes(crop.rarity) ? 'discover' : 'land');
-    const st = G.cropStatus(res.plot, app.now());
-    clear(info);
-    info.append(
-      h('div', {}, stars(crop.rarity)),
-      h('p', { style: { margin: '6px 0' } }, `A mystery ${info2.name.toLowerCase()} crop is sprouting. Its identity will be revealed when it blooms!`),
-      h('div', { class: 'muted small' }, `Ready in ${fmtDuration(st.harvestAt - app.now())} · ${fmtClock(st.harvestAt)}`),
-    );
-    clear(buttons);
-    if (st.open && onWater) {
-      buttons.append(h('button', {
-        class: 'btn blue',
-        onclick: (e) => { e.stopPropagation(); closeOverlay(entry); onWater(); },
-      }, uiImg('drop'), 'Water now'));
-    }
-    buttons.append(h('button', { class: 'btn', onclick: (e) => { e.stopPropagation(); closeOverlay(entry); } }, 'Lovely!'));
+  const st = G.cropStatus(res.plot, app.now());
+  const packet = uiImg(PACKET_FOR_TIER[tierId], 'plant-packet');
+  const seed = uiImg('seed', 'plant-seed');
+  const sprout = img(stageGrid(res.crop.id, 0), 'plant-sprout');
+  const stagePlot = h('div', { class: 'plant-stage' }, uiImg('soil', 'plant-soil'), sprout, seed, packet);
+  const buttons = h('div', { class: 'btn-row', style: { marginTop: '12px' } });
+  if (st.open && onWater) {
+    buttons.append(h('button', { class: 'btn blue', onclick: () => { closeOverlay(entry); onWater(); } }, uiImg('drop'), 'Water now'));
   }
-
-  function skip() {
-    if (!done) land();
-  }
-
-  timer = setTimeout(next, delays[0]);
+  buttons.append(h('button', { class: 'btn', onclick: () => closeOverlay(entry) }, 'Lovely!'));
+  const body = h('div', {},
+    h('h2', {}, 'Planted!'),
+    stagePlot,
+    h('p', { style: { margin: '8px 0 4px' } }, `A mystery seed from a ${tier.name} packet is in the ground.`),
+    h('p', { class: 'muted small', style: { margin: 0 } }, 'Check back as it grows through 5 stages. Can you guess what it will become?'),
+    h('div', { class: 'small', style: { marginTop: '6px' } }, `Ready in ${fmtDuration(st.harvestAt - app.now())} · ${fmtClock(st.harvestAt)}`),
+    buttons);
+  const entry = openModal(body);
+  setTimeout(() => sfx('tick'), 450);
+  setTimeout(() => sfx('land'), 900);
 }
 
 // ---------------------------------------------------------------- harvest
@@ -129,6 +64,7 @@ export function showHarvestResult(res) {
     h('div', { class: 'reward-line' }, uiImg('coin'), `+${fmtNum(res.value)}`),
     h('div', { class: 'muted small' }, `×${res.qty} harvested · watered ${res.waters}/${WATERING.checkpoints.length}${res.waters ? ` (×${(WATERING.yieldMult ** res.waters).toFixed(2)})` : ''}`),
     isBest ? h('div', { style: { marginTop: '6px', fontWeight: 700, color: '#a8691b' } }, '★ New record: highest single yield!') : null,
+    res.guess ? guessLine(res.guess) : null,
   );
   if (res.trophy) {
     const d = DECOR_BY_ID[res.trophy];
@@ -143,6 +79,12 @@ export function showHarvestResult(res) {
   const entry = openModal(body);
 }
 
+function guessLine(g) {
+  return g.correct
+    ? h('div', { class: 'guess-result good' }, `Good eye! You guessed it at the ${STAGE_NAMES[g.stage].toLowerCase()} stage: +${fmtNum(g.extra)} coins (+${Math.round(g.bonus * 100)}%)`)
+    : h('div', { class: 'guess-result' }, `You guessed ${CROP_BY_ID[g.cropId].name}. Not this time!`);
+}
+
 export function showHarvestSummary(results) {
   const total = results.reduce((a, r) => a + r.value, 0);
   const list = h('div', { style: { textAlign: 'left', margin: '8px 0' } });
@@ -150,7 +92,8 @@ export function showHarvestSummary(results) {
     list.append(h('div', { class: 'record-row' },
       cropImg(r.crop.id),
       h('div', { class: 'grow' }, h('b', {}, r.crop.name, r.isNew ? h('span', { class: 'banner-new', style: { fontSize: '11px', marginLeft: '6px', padding: '0 4px' } }, 'NEW') : null),
-        h('span', { class: 'small' }, rarityTag(r.crop.rarity), ` ×${r.qty}`)),
+        h('span', { class: 'small' }, rarityTag(r.crop.rarity), ` ×${r.qty}`,
+          r.guess ? (r.guess.correct ? ' · guessed right!' : ' · guess missed') : '')),
       h('span', { class: 'price' }, uiImg('coin'), fmtNum(r.value))));
   }
   const trophies = results.filter((r) => r.trophy);
@@ -158,6 +101,7 @@ export function showHarvestSummary(results) {
   const body = h('div', {},
     h('h2', {}, 'Harvest time!'),
     news ? h('div', { class: 'banner-new' }, `${news} new discover${news > 1 ? 'ies' : 'y'}!`) : null,
+    results.some((r) => r.guess && r.guess.correct) ? h('div', { class: 'guess-result good' }, `${results.filter((r) => r.guess && r.guess.correct).length} correct guess(es)!`) : null,
     list,
     h('div', { class: 'reward-line' }, uiImg('coin'), `+${fmtNum(total)}`),
     trophies.length ? h('div', { class: 'panel', style: { background: '#fff4b0' } }, h('b', {}, 'Ultra-rare reward!'), h('br'),

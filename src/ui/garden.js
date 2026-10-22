@@ -3,16 +3,16 @@ import { h, clear } from './dom.js';
 import { app, openSheet, closeOverlay, closeAllOverlays, toast, flyCoins } from './app.js';
 import * as G from '../core/game.js';
 import { DECOR_TILES } from '../core/state.js';
-import { PLOT_TILES, GARDEN_COLS, GARDEN_ROWS, SEED_TIERS, MINUTE, RARITY_INFO, WATERING } from '../data/config.js';
+import { PLOT_TILES, GARDEN_COLS, GARDEN_ROWS, SEED_TIERS, MINUTE, RARITY_INFO, WATERING, GUESS_BONUS } from '../data/config.js';
 import { CROP_BY_ID } from '../data/crops.js';
 import { DECOR_BY_ID, DECORATIONS } from '../data/decorations.js';
 import { VISITOR_BY_ID } from '../data/visitors.js';
-import { uiGrid, visitorGrid } from '../art/sprites.js';
+import { uiGrid, visitorGrid, familyOf, STAGE_NAMES } from '../art/sprites.js';
 import { PACKET_FOR_TIER } from '../art/uiArt.js';
 import {
-  img, uiImg, stageImg, decorImg, visitorImg, gridURL, coinAmount, fmtDuration, fmtClock, rarityTag, stars, fmtNum,
+  img, uiImg, stageImg, cropImg, decorImg, visitorImg, gridURL, coinAmount, fmtDuration, fmtClock, rarityTag, fmtNum,
 } from './render.js';
-import { showPlantReveal, showHarvestResult, showHarvestSummary, showVisitor, showBonusAwards } from './modals.js';
+import { showPlanted, showHarvestResult, showHarvestSummary, showVisitor, showBonusAwards } from './modals.js';
 import { sfx } from './audio.js';
 
 const tileMap = new Map(); // "x,y" -> { kind: 'plot'|'decor', index }
@@ -70,7 +70,7 @@ function plotSig(i, now) {
   const st = G.cropStatus(p.crop, now);
   const last = Math.max(0, ...p.crop.waters.filter((w) => w != null));
   const wet = last && now - last < 40 * MINUTE;
-  return `crop|${p.crop.cropId}|${p.crop.plantedAt}|${st.stage}|${st.ready}|${!!st.open}|${wet}`;
+  return `crop|${p.crop.cropId}|${p.crop.plantedAt}|${st.stage}|${st.ready}|${!!st.open}|${wet}|${p.crop.guess}`;
 }
 
 function buildPlot(i, now) {
@@ -96,8 +96,7 @@ function buildPlot(i, now) {
   const wet = last && now - last < 40 * MINUTE;
   els.push(uiImg(wet ? 'soil-wet' : 'soil', 'layer'));
   els.push(stageImg(c.cropId, st.stage, 'layer plant'));
-  const rarity = CROP_BY_ID[c.cropId].rarity;
-  els.push(h('i', { class: `rarity-dot ${rarity}`, style: { '--c': RARITY_INFO[rarity].color } }));
+  if (c.guess != null && !st.ready) els.push(h('div', { class: 'guess-chip' }, cropImg(c.guess)));
   if (st.ready) {
     els.push(h('div', { class: 'badge ready' }, uiImg('basket')));
   } else {
@@ -337,7 +336,7 @@ export function openSeedPicker(i) {
       h('div', { class: 'grow' }, h('b', {}, t.name), h('span', { class: 'muted small' }, `Owned ×${owned} · ${best}`)),
       btn));
   }
-  body.append(h('p', { class: 'muted small' }, 'The crop stays a mystery until it blooms. Pricier seeds have better odds.'));
+  body.append(h('p', { class: 'muted small' }, 'Every seed is a mystery: check back as it grows and try to guess what it will become. Pricier seeds have better odds.'));
   const entry = openSheet(`Plant in plot ${i + 1}`, body);
   function doPlant(idx, tierId, buy) {
     closeOverlay(entry);
@@ -355,7 +354,7 @@ function plantSeed(i, tierId) {
   sfx('plant');
   justPlanted = i;
   app.refresh();
-  showPlantReveal(res, tierId, {
+  showPlanted(res, tierId, {
     onWater: () => waterOne(i, tileEl('plot', i)),
   });
 }
@@ -414,46 +413,125 @@ function harvestAll() {
   setTimeout(() => showHarvestSummary(results), 450);
 }
 
+const FAMILY_LABELS = {
+  bloom: 'Flowers', tall: 'Tall stalks', root: 'Roots', rosette: 'Leafy', bush: 'Bushes', vine: 'Vines',
+  fungus: 'Mushrooms', crystal: 'Crystals', cactus: 'Cacti', tree: 'Trees', pod: 'Pods & curls', aquatic: 'Water plants',
+};
+
+function stageTrack(stage) {
+  return h('div', { class: 'stage-track' }, STAGE_NAMES.map((n, k) => h('span', { class: k < stage ? 'done' : k === stage ? 'now' : '' }, n)));
+}
+
 function openPlotInfo(i) {
   const p = app.state.plots[i];
   const c = p.crop;
-  const crop = CROP_BY_ID[c.cropId];
+  const tier = SEED_TIERS.find((t) => t.id === c.tier);
   const body = h('div', {});
-  const refreshBody = () => {
-    const now = app.now();
-    if (!p.crop || p.crop !== c) { closeOverlay(entry); return; }
-    const st = G.cropStatus(c, now);
+  let shownSig = '';
+  const live = {};
+  const build = (st) => {
     clear(body);
-    const stageNames = ['Seed', 'Sprout', 'Young plant', 'Budding', 'Ready!'];
+    live.progressText = h('span', {});
+    live.bar = h('i', {});
+    live.readyIn = h('dd', {});
+    live.windows = h('div', {});
+    const guessBox = h('div', { class: 'panel guess-panel' });
+    const g = c.guess != null ? CROP_BY_ID[c.guess] : null;
+    if (st.ready) {
+      guessBox.append(h('b', {}, 'It has bloomed!'), h('div', { class: 'small' }, 'Harvest it to find out what it is.'));
+    } else if (g) {
+      guessBox.append(
+        h('div', { class: 'guess-row' }, cropImg(g.id),
+          h('div', { class: 'grow' }, h('div', { class: 'muted small' }, 'Your guess'), h('b', {}, g.name),
+            h('div', { class: 'small' }, `Locked at ${STAGE_NAMES[c.guessStage].toLowerCase()}: +${Math.round(GUESS_BONUS[c.guessStage] * 100)}% coins if right`))),
+        h('div', { class: 'btn-row', style: { marginTop: '8px' } },
+          h('button', { class: 'btn small plain', onclick: () => { app.commit((s, t) => G.guessCrop(s, i, null, t)); shownSig = ''; tick(); } }, 'Clear'),
+          h('button', { class: 'btn small', onclick: () => openGuessPicker(i, () => { shownSig = ''; tick(); }) }, 'Change guess')));
+    } else {
+      const canGuess = Object.keys(app.state.discovered).length > 0;
+      guessBox.append(
+        h('b', {}, 'What do you think it is?'),
+        h('div', { class: 'small' }, `Guess now for +${Math.round(GUESS_BONUS[st.stage] * 100)}% coins if you're right. Earlier guesses pay more (seedling & small +${Math.round(GUESS_BONUS[0] * 100)}%, medium +${Math.round(GUESS_BONUS[2] * 100)}%, large +${Math.round(GUESS_BONUS[3] * 100)}%).`),
+        canGuess
+          ? h('button', { class: 'btn small gold', style: { marginTop: '8px' }, onclick: () => openGuessPicker(i, () => { shownSig = ''; tick(); }) }, 'Make a guess')
+          : h('div', { class: 'muted small', style: { marginTop: '6px' } }, 'Discover crops by harvesting them, then you can start guessing.'));
+    }
     body.append(
       h('div', { class: 'detail-head' },
         stageImg(c.cropId, st.stage),
         h('div', {},
-          h('div', { style: { fontSize: '18px', fontWeight: 700 } }, 'Mystery crop'),
-          h('div', { style: { margin: '4px 0' } }, rarityTag(crop.rarity), ' ', stars(crop.rarity)),
-          h('div', { class: 'muted small' }, `${stageNames[st.stage]} · ${Math.floor(st.progress * 100)}% grown`))),
-      h('div', { class: 'progress', style: { marginTop: '10px' } }, h('i', { style: { width: `${st.progress * 100}%` } })),
+          h('div', { style: { fontSize: '18px', fontWeight: 700 } }, 'Mystery plant'),
+          h('div', { class: 'small', style: { margin: '4px 0' } }, STAGE_NAMES[st.stage]),
+          h('div', { class: 'muted small' }, live.progressText),
+          h('div', { class: 'muted small', style: { display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' } },
+            uiImg(PACKET_FOR_TIER[tier.id], 'mini'), `From a ${tier.name}`))),
+      stageTrack(st.stage),
+      h('div', { class: 'progress', style: { marginTop: '8px' } }, live.bar),
       h('dl', { class: 'kv' },
-        h('dt', {}, 'Ready in'), h('dd', {}, st.ready ? 'Now!' : fmtDuration(st.harvestAt - now)),
-        h('dt', {}, 'Harvest at'), h('dd', {}, fmtClock(st.harvestAt)),
+        h('dt', {}, 'Ready in'), live.readyIn,
+        h('dt', {}, 'Ready at'), h('dd', {}, fmtClock(st.harvestAt)),
         h('dt', {}, 'Waterings'), h('dd', {}, `${G.waterCount(c)} / ${WATERING.checkpoints.length}`),
         h('dt', {}, 'Planted'), h('dd', {}, fmtClock(c.plantedAt))),
+      guessBox,
       h('h3', { style: { margin: '12px 0 4px' } }, 'Watering schedule'),
-      ...st.windows.filter((w) => w.valid).map((w) => {
-        let label;
-        if (w.watered) label = '✓ Watered';
-        else if (now >= w.closeAt) label = 'Missed (no penalty)';
-        else if (now >= w.openAt) label = `Open now · closes in ${fmtDuration(w.closeAt - now)}`;
-        else label = `Opens in ${fmtDuration(w.openAt - now)} (${fmtClock(w.openAt)})`;
-        return h('div', { class: 'bonus-row' }, h('span', {}, uiImg('drop'), ` Checkpoint ${w.index + 1}`), h('span', { class: 'small' }, label));
-      }),
+      live.windows,
       h('p', { class: 'muted small' }, `Each watering gives ×${WATERING.yieldMult} harvest value and makes the crop grow ${Math.round((1 - WATERING.timeMult) * 100)}% faster. Missing a window never hurts your crop.`),
     );
-    body.querySelectorAll('.bonus-row img').forEach((im) => { im.style.width = '16px'; im.style.verticalAlign = 'middle'; });
+  };
+  const tick = () => {
+    const now = app.now();
+    if (!p.crop || p.crop !== c) { closeOverlay(entry); return; }
+    const st = G.cropStatus(c, now);
+    const sig = `${st.stage}|${st.ready}|${c.guess}|${c.guessStage}|${G.waterCount(c)}`;
+    if (sig !== shownSig) { shownSig = sig; build(st); }
+    live.progressText.textContent = `${Math.floor(st.progress * 100)}% grown`;
+    live.bar.style.width = `${st.progress * 100}%`;
+    live.readyIn.textContent = st.ready ? 'Now!' : fmtDuration(st.harvestAt - now);
+    clear(live.windows);
+    for (const w of st.windows.filter((x) => x.valid)) {
+      let label;
+      if (w.watered) label = '✓ Watered';
+      else if (now >= w.closeAt) label = 'Missed (no penalty)';
+      else if (now >= w.openAt) label = `Open now · closes in ${fmtDuration(w.closeAt - now)}`;
+      else label = `Opens in ${fmtDuration(w.openAt - now)} (${fmtClock(w.openAt)})`;
+      live.windows.append(h('div', { class: 'bonus-row' }, h('span', {}, uiImg('drop', 'mini'), ` Checkpoint ${w.index + 1}`), h('span', { class: 'small' }, label)));
+    }
   };
   const entry = openSheet('Growing plot', body, { onClose: () => clearInterval(timer) });
-  refreshBody();
-  const timer = setInterval(refreshBody, 1000);
+  tick();
+  const timer = setInterval(tick, 1000);
+}
+
+// Pick a guess from the crops already discovered.
+function openGuessPicker(i, onDone) {
+  const s = app.state;
+  const found = Object.keys(s.discovered).map((id) => CROP_BY_ID[id]).sort((a, b) => a.id - b.id);
+  let family = 'all';
+  const grid = h('div', { class: 'dex-grid' });
+  const chips = h('div', { class: 'filters' });
+  const fams = [...new Set(found.map((c) => familyOf(c.id)))];
+  const renderGrid = () => {
+    clear(chips);
+    for (const f of ['all', ...fams]) {
+      chips.append(h('button', { class: `chip${family === f ? ' on' : ''}`, onclick: () => { family = f; renderGrid(); } }, f === 'all' ? `All ${found.length}` : FAMILY_LABELS[f]));
+    }
+    clear(grid);
+    for (const c of found.filter((x) => family === 'all' || familyOf(x.id) === family)) {
+      grid.append(h('button', {
+        class: 'dex-card', 'aria-label': `Guess ${c.name}`,
+        onclick: () => {
+          closeOverlay(entry);
+          const r = app.commit((st, now) => G.guessCrop(st, i, c.id, now));
+          if (r.ok && !r.unchanged) { sfx('place'); toast(`Guessed ${c.name}!`); }
+          if (onDone) onDone();
+        },
+      }, h('span', { class: 'num' }, String(c.id).padStart(3, '0')), cropImg(c.id), h('span', { class: 'dex-name' }, c.name)));
+    }
+  };
+  renderGrid();
+  const entry = openSheet('What is it growing into?', h('div', {},
+    h('p', { class: 'muted small', style: { marginTop: 0 } }, 'Pick from crops you have discovered. Study their growth stages in the Collection to get better at this!'),
+    chips, grid));
 }
 
 // ---------------------------------------------------------------- decor actions

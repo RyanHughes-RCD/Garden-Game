@@ -24,7 +24,7 @@ export const DECOR_TILES = (() => {
 
 export function emptyStats() {
   return {
-    plantings: 0, harvests: 0, waterings: 0, visitors: 0,
+    plantings: 0, harvests: 0, waterings: 0, visitors: 0, guesses: 0, correctGuesses: 0,
     coinsEarned: 0, coinsFromHarvests: 0, coinsSpent: 0, seedsBought: 0, itemsHarvested: 0,
     bestSingle: null,   // { cropId, value, qty, at }
     largestHaul: null,  // { cropId, value, qty, at }
@@ -109,6 +109,10 @@ export function sanitize(s, now = Date.now()) {
         variance: num(c.variance, 1),
         rollSeed: num(c.rollSeed, 0) >>> 0,
       };
+      if (CROP_BY_ID[c.guess] && Number.isInteger(c.guessStage) && c.guessStage >= 0 && c.guessStage <= 3) {
+        plot.crop.guess = c.guess;
+        plot.crop.guessStage = c.guessStage;
+      }
     }
     return plot;
   });

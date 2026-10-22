@@ -1,5 +1,5 @@
 // End-to-end gameplay check in a real browser (Playwright, iPhone viewport).
-// Plays the full loop with a fake clock: buy, plant, reveal, water, wait hours,
+// Plays the full loop with a fake clock: buy, plant, water, watch growth, guess, wait hours,
 // harvest, discover, visitors, decorate, earn a bonus, reload, showcase.
 // Usage: node tools/e2e.mjs [screenshot-dir]
 import { createRequire } from 'node:module';
@@ -40,14 +40,18 @@ try {
   assert.equal(s.coins, 40);
   assert.equal(s.seeds.sprout, 3);
 
-  // plant 3 starter seeds with the reveal animation
+  // plant 3 starter seeds (planting reveals nothing about the crop)
   for (let i = 1; i <= 3; i++) {
     await tap(`button[aria-label="Plot ${i}"]`);
     if (i === 1) await shot('02-seed-picker');
     await tap('.sheet button:has-text("Plant")');
-    if (i === 1) { await page.clock.runFor(600); await shot('03-reveal-spinning'); }
+    if (i === 1) { await page.clock.runFor(600); await shot('03-planting'); }
     await page.clock.runFor(4000);
-    if (i === 1) await shot('04-reveal-landed');
+    if (i === 1) {
+      await shot('04-planted');
+      const text = await page.locator('.modal').innerText();
+      for (const r of ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Ultra']) assert.ok(!text.includes(r), `planting must not reveal rarity (${r})`);
+    }
     await tap('.modal button:has-text("Water now")');
   }
   s = await save();
@@ -114,7 +118,33 @@ try {
   await shot('11-collection');
   await tap('.dex-card:not(.locked)');
   await shot('12-crop-detail');
+  assert.equal(await page.locator('.growth-strip img').count(), 5, 'collection shows 5 growth stages');
   await page.locator('.backdrop').last().click({ position: { x: 10, y: 10 } });
+
+  // plant again, watch it grow and make a guess from discovered crops
+  await tap('#tabbar button[data-tab="garden"]');
+  await tap('button[aria-label="Plot 1"]');
+  await tap('.sheet button:has-text("Buy")');
+  await page.clock.runFor(2500);
+  await tap('.modal button:has-text("Lovely!")');
+  await tap('button[aria-label="Plot 1"]'); // first tap waters (checkpoint 1 is open)
+  await page.clock.runFor(1200);
+  await tap('button[aria-label="Plot 1"]');
+  assert.ok(await page.locator('.sheet .stage-track').count(), 'plot info shows the stage track');
+  assert.ok(!(await page.locator('.sheet').innerText()).match(/Common|Uncommon|Rare|Epic|Legendary/), 'plot info hides rarity');
+  await tap('.sheet button:has-text("Make a guess")');
+  await shot('12b-guess-picker');
+  await tap('.sheet .dex-card');
+  s = await save();
+  assert.ok(s.plots[0].crop.guess, 'guess saved');
+  assert.equal(s.plots[0].crop.guessStage, 0);
+  await page.locator('.backdrop').last().click({ position: { x: 10, y: 10 } }).catch(() => {});
+  await page.clock.runFor(500);
+  await tap('button[aria-label="Plot 1"]');
+  await shot('12c-plot-guessed');
+  await page.locator('.backdrop').last().click({ position: { x: 10, y: 10 } });
+  await advance(0.6 * (s.plots[0].crop.duration));
+  await shot('12d-growing-medium');
 
   // decorations: give the test player coins, buy & place, earn a bonus
   await page.evaluate(() => { const v = JSON.parse(localStorage.getItem('littleGarden.save')); v.coins += 3000; v.rev += 1; localStorage.setItem('littleGarden.save', JSON.stringify(v)); });

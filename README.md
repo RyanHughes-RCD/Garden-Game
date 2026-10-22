@@ -13,12 +13,13 @@ It is a **Progressive Web App (PWA)**: plain HTML/CSS/JavaScript, with no build 
 ## How to play
 
 1. **Buy seeds** in the Seed Shop. Seeds are the only consumable item and coins are the only currency.
-2. **Tap an empty plot** and pick a seed. A short slot-machine reveal spins through silhouettes, colours, symbols and rarity names. It lands on your seed's **rarity and silhouette**. The crop's name and colours stay secret until it blooms.
-3. **Wait**: crops take 1–16 real hours. Growth is calculated from saved timestamps, so it continues while the app is closed.
-4. **Water** at the three checkpoints (a 💧 bubble appears on the plot). Each watering multiplies the harvest value and speeds up growth. If you miss a window, you only lose that window's bonus. Crops never wilt.
-5. **Harvest** when the basket bubble appears. You earn coins, the crop is added to your Collection, and your records may update. The first harvest of each ultra-rare also gives you a unique decoration.
-6. **Decorate**: buy decorations and place them on the grass. Your garden score goes up, and score thresholds award random permanent bonuses.
-7. **Visitors** drop by from time to time. Tap them for coins, a free seed, a watering, or faster growth.
+2. **Tap an empty plot** and pick a seed. Planting tells you nothing about what will grow: the seed drops into the soil and a seedling pops up.
+3. **Watch it grow** through 5 stages: seedling, small plant, medium plant, large plant and final form. Crops take 1–16 real hours. Growth is calculated from saved timestamps, so it continues while the app is closed. Each stage gives more clues: the plant's shape family, leaf colour, a hint of bud colour, and finally the real silhouette in unripe colours.
+4. **Guess** what it is (optional). Open a growing plot and pick a crop you have already discovered. A correct guess adds a harvest bonus, and earlier guesses pay more.
+5. **Water** at the three checkpoints (a 💧 bubble appears on the plot). Each watering multiplies the harvest value and speeds up growth. If you miss a window, you only lose that window's bonus. Crops never wilt.
+6. **Harvest** when the basket bubble appears. You earn coins, the crop is added to your Collection, and your records may update. The first harvest of each ultra-rare also gives you a unique decoration.
+7. **Decorate**: buy decorations and place them on the grass. Your garden score goes up, and score thresholds award random permanent bonuses.
+8. **Visitors** drop by from time to time. Tap them for coins, a free seed, a watering, or faster growth.
 
 ## Game rules (exact numbers)
 
@@ -47,6 +48,18 @@ Within the rolled rarity, each eligible crop you have **never harvested** gets *
 ### Watering
 
 Each crop has 3 checkpoints, at 0%, 30% and 60% of its planned grow time. A checkpoint's window stays open until the next one opens, or until harvest. Each watering applies **×1.15 harvest value** (so 1.15, 1.32 and 1.52 for 1, 2 and 3 waterings) and **×0.95 grow time**. Watering all three adds one extra item to the harvest.
+
+### Growth stages and guessing
+
+| Stage | Grow progress | What you see |
+|---|---|---|
+| Seedling | 0–20% | A sprout in the crop's leaf colour. Mushrooms, crystals, cacti and water plants have their own seedlings |
+| Small plant | 20–45% | The growth family's shape: flower, tall stalk, root, leafy, bush, vine, mushroom, crystal, cactus, tree, pod or water plant |
+| Medium plant | 45–70% | A bigger family shape with a faint bud or fruit hint of the final colour |
+| Large plant | 70–100% | The crop's real silhouette, washed in unripe greens |
+| Final form | ready | The crop itself. Harvest it to add it to your collection |
+
+You can only guess crops you've already discovered, and the Collection shows every discovered crop's five stages so you can learn them. The bonus for a correct guess depends on the stage when the guess was made: **+30%** at seedling or small, **+20%** at medium, **+10%** at large. Changing a guess re-locks it at the current stage, guessing closes once the crop blooms, and a wrong guess costs nothing. These values live in `src/data/config.js` (`GROWTH_STAGES`, `GUESS_BONUS`).
 
 ### Determinism and saves
 
@@ -83,6 +96,7 @@ npm test             # unit tests: rules, balance, saves, PWA files, sprites
 npm run e2e          # full browser playthrough with Playwright (if installed)
 npm run assets       # regenerate PWA icons + sprite sheets from the pixel data
 npm run screenshots  # regenerate docs/screenshots from a simulated save
+npm run sprites -- help   # art pipeline: export / import / remove / preview sprites
 ```
 
 Any static file server works too, for example `python3 -m http.server`. Open the page over `http://localhost` or HTTPS so the service worker can register.
@@ -129,18 +143,46 @@ src/
   styles.css            Mobile-first styles and animations
   core/                 Pure game logic: rng.js (seeded RNG), state.js (save/migrate), game.js (rules)
   data/                 config.js (all tuning), crops.js (100 crops), decorations.js, visitors.js
-  art/                  Pixel-art templates + palettes; sprites.js builds every sprite from data
+  art/                  Pixel-art templates + palettes; sprites.js builds every sprite (PNG overrides first)
   ui/                   Screens (garden, seeds, collection, decor, records, showcase) and modals
 assets/fonts/           Pixelify Sans (OFL), bundled for offline use
+assets/art/             Your PNG sprite overrides + manifest.json (see art pipeline)
 assets/sprites/         Generated sprite sheets (reference)
 icons/                  Generated PWA icons
 tests/                  node:test unit tests
 tools/                  Dev server, PNG encoder, asset/screenshot generators, e2e playthrough
 ```
 
+### The art pipeline: replacing sprites in bulk
+
+Every sprite can be replaced by a PNG file in `assets/art/<kind>/<key>.png`, where the kind is `crops`, `decor`, `visitors` or `ui`. At startup the game loads everything listed in `assets/art/manifest.json` and uses it instead of the generated art. The service worker caches those files for offline play. Anything without an override keeps its generated sprite, so you can redo the art a few sprites at a time.
+
+* **Frames** are square and laid out left to right. A crop file has **5 frames** (seedling, small, medium, large, final) or **1 frame** (final form only). With a single frame, the game generates the growing stages itself and derives the large stage from your art. Visitors take 1–2 frames (idle, blink). Decorations and UI sprites take 1.
+* **Any size works**: 16, 24, 32, 48 px and so on. All frames in one file must share the same size. The game scales everything to fit the garden tiles with crisp pixels.
+
+The `sprites` tool does the bulk work:
+
+```bash
+# start from the current art: export editable PNGs (2x = 32px canvases)
+npm run sprites -- export --rarity ultra --scale 2
+npm run sprites -- export --family fungus,crystal       # by growth family
+npm run sprites -- export --kind decor --keys gnome,fountain
+
+# bring in art from anywhere (painted, AI-generated, other tools), any size:
+# downscales to pixel art, reduces colours, matches files to crops by name/number
+npm run sprites -- import ~/new-art --size 32 --colors 20 --trim --key-bg
+
+npm run sprites -- preview      # contact sheets with overrides → art-preview/
+npm run sprites -- list         # what is overridden
+npm run sprites -- check        # validate files + manifest (also run by npm test)
+npm run sprites -- remove --keys velvet-rose   # back to generated art
+```
+
+To import crops, name each file by its crop key (`velvet-rose.png`) or number (`031.png`, `31-anything.png`). Give either a strip of 5 frames or separate files `<key>-s0.png` … `<key>-s4.png`. After adding files by hand, run `npm run sprites -- sync` to update the manifest. When you publish new art, bump `VERSION` in `sw.js` so installed copies refresh. Filters work with every command: `--kind`, `--keys`, `--ids 1,5,10-20`, `--rarity`, `--template`, `--family` and `--category`.
+
 ### The pixel-art system
 
-All art is real pixel art defined as data. Each sprite is a grid of characters mapped to a small palette (`src/art/*Art.js`). At runtime the game draws every sprite onto a canvas with nearest-neighbour scaling, and the Node tools use the same data to export the PNG icons and sprite sheets. The 100 crops share about 40 hand-drawn silhouette templates. Each crop gets its own palette and effect, and the 5 ultra-rares have unique templates. Every crop has 4 growth stages, plus its mature sprite.
+All art is real pixel art defined as data. Each sprite is a grid of characters mapped to a small palette (`src/art/*Art.js`). At runtime the game draws every sprite onto a canvas with nearest-neighbour scaling, and the Node tools use the same data to export the PNG icons and sprite sheets. The 100 crops share about 40 hand-drawn silhouette templates. Each crop gets its own palette and effect, and the 5 ultra-rares have unique templates. Growth stages come from 12 growth-family templates (`src/art/growthArt.js`). Any sprite can be replaced with a PNG through the art pipeline above.
 
 To **add or rebalance a crop**, edit its row in `src/data/crops.js`. The tests check that there are still exactly 100 crops, that 5 of them are ultra-rare, that each one looks distinct, and that every tier's odds are consistent.
 

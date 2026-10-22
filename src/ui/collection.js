@@ -5,7 +5,8 @@ import * as G from '../core/game.js';
 import { RARITIES, RARITY_INFO, SEED_TIERS } from '../data/config.js';
 import { CROPS } from '../data/crops.js';
 import { PACKET_FOR_TIER } from '../art/uiArt.js';
-import { cropImg, uiImg, rarityTag, stars, fmtNum, fmtDate, rarityColor } from './render.js';
+import { cropImg, stageImg, uiImg, rarityTag, stars, fmtNum, fmtDate, rarityColor } from './render.js';
+import { STAGE_NAMES } from '../art/sprites.js';
 
 let filter = 'all';
 
@@ -80,6 +81,9 @@ function openDetail(c) {
       h('dt', {}, 'Best yield'), h('dd', {}, `${fmtNum(d.best)} coins`),
       h('dt', {}, 'Total earned'), h('dd', {}, `${fmtNum(d.total)} coins`),
       h('dt', {}, 'First discovered'), h('dd', {}, fmtDate(d.firstAt))),
+    h('h3', { style: { margin: '12px 0 0' } }, 'How it grows'),
+    h('div', { class: 'muted small' }, 'Learn these stages to guess crops before they bloom.'),
+    h('div', { class: 'growth-strip' }, STAGE_NAMES.map((n, k) => h('div', {}, stageImg(c.id, k), n))),
     h('h3', { style: { margin: '12px 0 0' } }, 'Seed odds'),
     h('div', { class: 'muted small' }, 'Base chance per seed (before bonuses and the discovery boost).'),
     oddsTable(c)));

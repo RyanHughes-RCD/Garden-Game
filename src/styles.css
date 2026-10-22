@@ -333,19 +333,25 @@ button {
 .tile .badge img { width: 70%; height: 70%; }
 .tile .badge.water { background: #d6f0ff; }
 .tile .badge.ready { background: #fff4b0; }
-.tile .rarity-dot {
+.tile .guess-chip {
   position: absolute;
-  left: 3px;
-  top: 3px;
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
+  left: 2px;
+  top: 2px;
+  width: calc(var(--tile) * 0.3);
+  height: calc(var(--tile) * 0.3);
+  background: #fff;
   border: 2px solid var(--ink);
-  background: var(--c);
+  border-radius: 6px;
   z-index: 2;
   pointer-events: none;
+  opacity: 0.92;
 }
-.tile .rarity-dot.ultra { background: linear-gradient(135deg, #ff6f8a, #ffd23f, #4fb3ff); }
+.tile .guess-chip img { width: 100%; height: 100%; display: block; }
+.tile .guess-chip::after {
+  content: '?'; position: absolute; right: -6px; top: -8px; font-size: 11px; font-weight: 700;
+  background: var(--gold); border: 2px solid var(--ink); border-radius: 50%; width: 14px; height: 14px;
+  line-height: 10px; text-align: center;
+}
 .tile .bar {
   position: absolute;
   left: 8%;
@@ -682,3 +688,38 @@ input.text-input {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------------------------------------------------------------- growth & guessing */
+img.mini { width: 18px; height: 18px; vertical-align: middle; }
+.stage-track { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin-top: 10px; }
+.stage-track span {
+  font-size: 10px; text-align: center; padding: 3px 1px; border: 2px solid var(--ink); border-radius: 6px;
+  background: #fff; color: var(--ink-soft); line-height: 1.1;
+}
+.stage-track span.done { background: #c8ecb0; color: var(--ink); }
+.stage-track span.now { background: var(--gold); color: var(--ink); font-weight: 700; }
+.guess-panel { margin: 12px 0 0; background: #fff8d8; }
+.guess-row { display: flex; gap: 10px; align-items: center; }
+.guess-row > img { width: 56px; height: 56px; background: #fff; border: 2px solid var(--ink); border-radius: 8px; flex: none; }
+.guess-row .grow { flex: 1; min-width: 0; }
+.dex-card .dex-name { font-size: 9px; line-height: 1; padding: 0 2px 3px; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guess-result { margin-top: 8px; font-size: 14px; padding: 6px 8px; border: 2px dashed var(--ink-soft); border-radius: 8px; }
+.guess-result.good { border: 2px solid var(--ink); background: #d8f5c0; font-weight: 700; }
+.growth-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+.growth-strip div { text-align: center; font-size: 10px; color: var(--ink-soft); }
+.growth-strip img { width: 100%; height: auto; display: block; background: #9a6a42; border: 2px solid var(--ink); border-radius: 6px; margin-bottom: 2px; }
+.growth-strip div:last-child img { background: var(--paper-2); }
+
+/* planting animation */
+.plant-stage { position: relative; width: 128px; height: 128px; margin: 44px auto 4px; }
+.plant-stage .plant-soil { position: absolute; inset: 0; width: 100%; height: 100%; }
+.plant-stage .plant-sprout { position: absolute; inset: 0; width: 100%; height: 100%; transform-origin: 50% 90%; animation: sproutUp 0.5s ease-out 0.95s both; }
+.plant-stage .plant-packet { position: absolute; left: 34px; top: -40px; width: 60px; height: 60px; animation: packetShake 1s ease-in-out forwards; }
+.plant-stage .plant-seed { position: absolute; left: 56px; top: 20px; width: 16px; height: 16px; opacity: 0; animation: seedDrop 0.5s ease-in 0.45s forwards; }
+@keyframes packetShake {
+  0% { transform: translateY(-10px) rotate(0); opacity: 0; } 15% { opacity: 1; transform: translateY(0); }
+  30% { transform: rotate(-14deg); } 45% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); }
+  80% { transform: rotate(0); opacity: 1; } 100% { transform: translateY(-14px); opacity: 0; }
+}
+@keyframes seedDrop { 0% { opacity: 1; transform: translateY(0); } 90% { opacity: 1; } 100% { opacity: 0; transform: translateY(70px); } }
+@keyframes sproutUp { 0% { transform: scale(0.1); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }

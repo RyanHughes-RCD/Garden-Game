@@ -1,6 +1,6 @@
 // Turns pixel grids into crisp images (nearest-neighbour, pre-scaled).
 import { h } from './dom.js';
-import { cropGrid, cropSilhouette, stageGrid, decorGrid, visitorGrid, uiGrid } from '../art/sprites.js';
+import { cropGrid, stageGrid, decorGrid, visitorGrid, uiGrid } from '../art/sprites.js';
 import { RARITY_INFO } from '../data/config.js';
 
 const urlCache = new WeakMap();
@@ -22,7 +22,8 @@ export function gridCanvas(grid, scale = 8) {
   return c;
 }
 
-export function gridURL(grid, scale = 8) {
+// Default scale renders roughly 128px images whatever the art's resolution.
+export function gridURL(grid, scale = Math.max(1, Math.round(128 / Math.max(grid.w, grid.h)))) {
   let byScale = urlCache.get(grid);
   if (!byScale) urlCache.set(grid, (byScale = new Map()));
   if (!byScale.has(scale)) byScale.set(scale, gridCanvas(grid, scale).toDataURL('image/png'));
@@ -34,7 +35,6 @@ export function img(grid, cls = '', alt = '') {
 }
 
 export const cropImg = (id, cls, alt) => img(cropGrid(id), cls, alt);
-export const silImg = (id, color, cls) => img(cropSilhouette(id, color), cls);
 export const stageImg = (id, stage, cls) => img(stageGrid(id, stage), cls);
 export const decorImg = (id, cls, alt) => img(decorGrid(id), cls, alt);
 export const visitorImg = (id, frame, cls) => img(visitorGrid(id, frame), cls);

@@ -4,7 +4,7 @@
 import { hash32, makeRng, weightedPick } from './rng.js';
 import {
   HOUR, MINUTE, RARITIES, RARITY_INFO, SEED_TIERS, DISCOVERY_WEIGHT, WATERING, PLOT_PRICES,
-  DUPLICATE_FALLOFF, SCORE_THRESHOLDS, BONUS_TYPES, BONUS_FALLBACK_COINS, VISITORS,
+  DUPLICATE_FALLOFF, SCORE_THRESHOLDS, GROWTH_STAGES, GUESS_BONUS, BONUS_TYPES, BONUS_FALLBACK_COINS, VISITORS,
 } from '../data/config.js';
 import { CROPS, CROP_BY_ID, ULTRA_TROPHY } from '../data/crops.js';
 import { DECOR_BY_ID } from '../data/decorations.js';
@@ -181,8 +181,8 @@ export function cropStatus(c, now) {
   const ready = now >= t.harvestAt;
   const open = ready ? null : t.windows.find((w) => w.valid && !w.watered && now >= w.openAt && now < w.closeAt) || null;
   const upcoming = ready ? null : t.windows.find((w) => w.valid && !w.watered && w.openAt > now) || null;
-  // 0 seed, 1 sprout, 2 young, 3 budding, 4 mature
-  const stage = ready ? 4 : progress < 0.12 ? 0 : progress < 0.4 ? 1 : progress < 0.75 ? 2 : 3;
+  // 0 seedling, 1 small, 2 medium, 3 large, 4 final form (ready)
+  const stage = ready ? 4 : GROWTH_STAGES.filter((t) => progress >= t).length;
   return { ...t, progress, ready, open, upcoming, stage };
 }
 
@@ -196,6 +196,26 @@ export function water(state, plotIdx, now) {
   state.stats.waterings += 1;
   state.tutorial.watered = true;
   return { ok: true, checkpoint: st.open.index };
+}
+
+// Guess what a growing crop is. `cropId` must be a crop already discovered;
+// pass null to clear the guess. The bonus is locked to the current stage.
+export function guessCrop(state, plotIdx, cropId, now) {
+  const plot = state.plots[plotIdx];
+  if (!plot || !plot.crop) return fail('Nothing planted');
+  const st = cropStatus(plot.crop, now);
+  if (st.ready) return fail('It has already bloomed!');
+  if (cropId == null) {
+    delete plot.crop.guess;
+    delete plot.crop.guessStage;
+    return { ok: true, cleared: true };
+  }
+  if (!CROP_BY_ID[cropId]) return fail('Unknown crop');
+  if (!state.discovered[cropId]) return fail('You can only guess crops you have discovered');
+  if (plot.crop.guess === cropId) return { ok: true, stage: plot.crop.guessStage, unchanged: true };
+  plot.crop.guess = cropId;
+  plot.crop.guessStage = st.stage;
+  return { ok: true, stage: st.stage, bonus: GUESS_BONUS[st.stage] };
 }
 
 export function harvestPreview(state, c) {
@@ -220,7 +240,18 @@ export function harvest(state, plotIdx, now) {
   const c = plot.crop;
   if (!cropStatus(c, now).ready) return fail('Not ready yet');
   const crop = CROP_BY_ID[c.cropId];
-  const { qty, value, waters } = harvestPreview(state, c);
+  const base = harvestPreview(state, c);
+  const { qty, waters } = base;
+  let value = base.value;
+  let guess = null;
+  if (c.guess != null) {
+    const correct = c.guess === crop.id;
+    const bonus = correct ? GUESS_BONUS[c.guessStage] || 0 : 0;
+    value = Math.round(value * (1 + bonus));
+    guess = { cropId: c.guess, correct, bonus, stage: c.guessStage, extra: value - base.value };
+    state.stats.guesses += 1;
+    if (correct) state.stats.correctGuesses += 1;
+  }
 
   plot.crop = null; // cleared before rewards: the same crop can never pay twice
   earn(state, value);
@@ -248,7 +279,7 @@ export function harvest(state, plotIdx, now) {
     state.decorOwned[trophy] = (state.decorOwned[trophy] || 0) + 1;
   }
   state.tutorial.harvested = true;
-  return { ok: true, crop, value, qty, waters, isNew, trophy, newBest };
+  return { ok: true, crop, value, qty, waters, isNew, trophy, newBest, guess };
 }
 
 // ---------------------------------------------------------------- decorations

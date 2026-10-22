@@ -7,6 +7,9 @@ import { DECORATIONS } from '../src/data/decorations.js';
 import { VISITOR_TYPES } from '../src/data/visitors.js';
 import { UI_TEMPLATES } from '../src/art/uiArt.js';
 import { cropGrid, decorGrid, visitorGrid, uiGrid, stageGrid } from '../src/art/sprites.js';
+import { loadOverridesNode } from './art-io.mjs';
+
+loadOverridesNode(); // hand-made art in assets/art/ wins over generated art
 
 const root = new URL('..', import.meta.url).pathname;
 mkdirSync(`${root}icons`, { recursive: true });
@@ -32,13 +35,14 @@ writeFileSync(`${root}icons/favicon-32.png`, icon(32));
 
 // Sprite sheets (16px cells, 1x) for reference / reuse.
 function sheet(grids, cols, file) {
+  const cell = Math.max(...grids.map((g) => Math.max(g.w, g.h)));
   const rows = Math.ceil(grids.length / cols);
-  const bmp = new Bitmap(cols * 16, rows * 16);
-  grids.forEach((g, i) => bmp.blit(g, (i % cols) * 16, Math.floor(i / cols) * 16, 1));
+  const bmp = new Bitmap(cols * cell, rows * cell);
+  grids.forEach((g, i) => bmp.blit(g, (i % cols) * cell, Math.floor(i / cols) * cell, 1));
   writeFileSync(`${root}assets/sprites/${file}`, bmp.png());
 }
 sheet(CROPS.map((c) => cropGrid(c.id)), 10, 'crops.png');
-sheet(CROPS.flatMap((c) => [0, 1, 2, 3].map((st) => stageGrid(c.id, st))), 16, 'growth-stages.png');
+sheet(CROPS.flatMap((c) => [0, 1, 2, 3, 4].map((st) => stageGrid(c.id, st))), 20, 'growth-stages.png');
 sheet(DECORATIONS.map((d) => decorGrid(d.id)), 8, 'decorations.png');
 sheet(VISITOR_TYPES.flatMap((v) => [visitorGrid(v.id, 0), visitorGrid(v.id, 1)]), 6, 'visitors.png');
 sheet(Object.keys(UI_TEMPLATES).map((k) => uiGrid(k)).map((g) => ({ ...g, w: g.w })), 8, 'ui.png');

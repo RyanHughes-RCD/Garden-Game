@@ -31,6 +31,7 @@ export function render(root) {
       stat('Seeds planted', fmtNum(st.plantings), 'seed'),
       stat('Waterings', fmtNum(st.waterings), 'drop'),
       stat('Visitors greeted', fmtNum(st.visitors), 'heart'),
+      stat('Correct guesses', `${fmtNum(st.correctGuesses)}/${fmtNum(st.guesses)}`, 'star'),
       stat('Gardening since', fmtDate(s.createdAt)))));
 
   const recRow = (title, e, extra) => h('div', { class: 'record-row' },

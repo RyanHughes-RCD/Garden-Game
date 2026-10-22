@@ -120,3 +120,65 @@ export function cropPalette({ main, accent, leaf }) {
     x: INK,
   };
 }
+
+// ---------------------------------------------------------------- RGBA <-> grid
+
+// Split an RGBA image (Uint8 array, row-major) into square frames laid out
+// horizontally. Pixels with alpha < 128 are transparent.
+export function framesFromRGBA(width, height, data) {
+  const size = height;
+  const count = width % size === 0 ? width / size : 1;
+  const fw = count > 1 ? size : width;
+  const frames = [];
+  for (let f = 0; f < count; f++) {
+    const px = new Array(fw * height).fill(null);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < fw; x++) {
+        const i = (y * width + f * fw + x) * 4;
+        if (data[i + 3] >= 128) px[y * fw + x] = rgbToHex([data[i], data[i + 1], data[i + 2]]);
+      }
+    }
+    frames.push({ w: fw, h: height, px });
+  }
+  return frames;
+}
+
+// Nearest-neighbour upscale by an integer factor.
+export function scaleGrid(grid, k) {
+  if (k === 1) return grid;
+  const w = grid.w * k;
+  const h = grid.h * k;
+  const px = new Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) px[y * w + x] = grid.px[Math.floor(y / k) * grid.w + Math.floor(x / k)];
+  return { w, h, px };
+}
+
+function hsl(hex) {
+  const [r, g, b] = hexToRgb(hex).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let hue;
+  if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+  else if (max === g) hue = ((b - r) / d + 2) * 60;
+  else hue = ((r - g) / d + 4) * 60;
+  return [hue, s, l];
+}
+
+// "Unripe" version of a sprite: keeps foliage and outlines, washes everything
+// else towards a pale leaf green so the shape shows but the colour mostly hides.
+// Works on any grid, including hand-made PNG overrides.
+export function unripe(grid, leaf, amount = 0.62) {
+  const bud = mix(leaf, '#e6f2c8', 0.35);
+  const out = grid.px.map((c) => {
+    if (!c) return c;
+    const [hue, s, l] = hsl(c);
+    if (l < 0.2) return c;
+    if (hue >= 65 && hue <= 170 && s > 0.18) return c;
+    return mix(c, bud, amount);
+  });
+  return { w: grid.w, h: grid.h, px: out };
+}

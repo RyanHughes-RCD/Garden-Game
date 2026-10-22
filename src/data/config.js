@@ -51,6 +51,16 @@ export const WATERING = {
   timeMult: 0.95,   // total grow time multiplier per watering
 };
 
+// Growth stages: seedling, small, medium, large, then the final form when the
+// crop is ready. Values are the grow-progress fractions where stages 1–3 begin.
+export const GROWTH_STAGES = [0.2, 0.45, 0.7];
+
+// Guessing: while a crop grows you may guess what it is (from crops you have
+// already discovered). A correct guess adds a harvest bonus that depends on the
+// stage the guess was made at — earlier guesses are bolder and pay more.
+// Changing a guess re-locks it to the current stage. No guessing once ready.
+export const GUESS_BONUS = [0.3, 0.3, 0.2, 0.1]; // by stage 0..3
+
 // Plot layout: the garden is a 5x7 tile grid; plots occupy the centre 3x4 block.
 export const GARDEN_COLS = 5;
 export const GARDEN_ROWS = 7;

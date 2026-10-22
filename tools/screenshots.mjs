@@ -40,6 +40,14 @@ for (let step = 0; step < 21 * 6; step++) {
   });
   now += 4 * HOUR;
 }
+// spread the growing crops across all five stages for the screenshots
+const stagesAt = [0.08, 0.3, 0.55, 0.85, 1.2];
+s.plots.forEach((p, i) => {
+  if (!p.crop) return;
+  p.crop.waters = p.crop.waters.map(() => null);
+  p.crop.boostMs = 0;
+  p.crop.plantedAt = Date.now() - p.crop.duration * stagesAt[i % 5];
+});
 s.visitor.current = null;
 s.visitor.nextAt = Date.now() + 2000;
 s.settings.gardenName = 'Sunny Meadow';

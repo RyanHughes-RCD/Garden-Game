@@ -1,6 +1,6 @@
 // Service worker: precaches the whole game so it works offline. Paths are
 // relative to the worker's location, so it works under a GitHub Pages subpath.
-const VERSION = 'little-garden-v1.0.0';
+const VERSION = 'little-garden-v1.1.0';
 const ASSETS = [
   './',
   './index.html',
@@ -16,6 +16,8 @@ const ASSETS = [
   './src/data/visitors.js',
   './src/art/pixel.js',
   './src/art/sprites.js',
+  './src/art/growthArt.js',
+  './src/art/overrides.js',
   './src/art/cropArt.js',
   './src/art/decorArt.js',
   './src/art/visitorArt.js',
@@ -32,6 +34,7 @@ const ASSETS = [
   './src/ui/seeds.js',
   './src/ui/showcase.js',
   './assets/fonts/PixelifySans-latin.woff2',
+  './assets/art/manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
@@ -39,8 +42,22 @@ const ASSETS = [
   './icons/favicon-32.png',
 ];
 
+// Override art files are listed in assets/art/manifest.json; precache them too.
+async function artFiles() {
+  try {
+    const manifest = await (await fetch('./assets/art/manifest.json', { cache: 'no-cache' })).json();
+    return ['crops', 'decor', 'visitors', 'ui'].flatMap((k) => Object.values(manifest[k] || {}).map((rel) => `./assets/art/${rel}`));
+  } catch {
+    return [];
+  }
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
+  event.waitUntil((async () => {
+    const cache = await caches.open(VERSION);
+    await cache.addAll([...ASSETS, ...(await artFiles())]);
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {

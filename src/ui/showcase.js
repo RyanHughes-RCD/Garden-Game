@@ -12,8 +12,10 @@ const W = 720;
 const H = 1280;
 const INK = '#2b1b33';
 
+// `scale` is given for 16px art; other resolutions are fitted to the same box.
 function sprite(ctx, grid, x, y, scale) {
-  ctx.drawImage(gridCanvas(grid, scale), Math.round(x), Math.round(y));
+  const k = Math.max(1, Math.round((16 * scale) / Math.max(grid.w, grid.h)));
+  ctx.drawImage(gridCanvas(grid, k), Math.round(x), Math.round(y));
 }
 
 function panel(ctx, x, y, w, hgt, fill = '#fff6e2') {

@@ -11,6 +11,7 @@ import * as collection from './ui/collection.js';
 import * as decor from './ui/decor.js';
 import * as records from './ui/records.js';
 import { showWelcomeBack } from './ui/modals.js';
+import { loadOverrides } from './art/overrides.js';
 import { VISITOR_BY_ID } from './data/visitors.js';
 
 function grassBackground() {
@@ -38,11 +39,12 @@ function awaySummary(since, now) {
   };
 }
 
-function boot() {
+async function boot() {
   const lastSeen = (() => {
     try { return JSON.parse(localStorage.getItem('littleGarden.save') || '{}').lastSeenAt || null; } catch { return null; }
   })();
   app.init();
+  await loadOverrides();
   grassBackground();
   hydrateSprites();
 

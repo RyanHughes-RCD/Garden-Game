@@ -1,5 +1,5 @@
 // Minimal dependency-free PNG encoder (RGBA, 8-bit) used by the asset tools.
-import { deflateSync } from 'node:zlib';
+import { deflateSync, inflateSync } from 'node:zlib';
 import { hexToRgb } from '../src/art/pixel.js';
 
 const CRC_TABLE = (() => {
@@ -71,4 +71,84 @@ export class Bitmap {
     }
   }
   png() { return encodePNG(this.w, this.h, this.data); }
+}
+
+// Minimal PNG decoder: 8-bit greyscale/RGB/RGBA/grey+alpha and palette
+// (1/2/4/8-bit, with tRNS), non-interlaced. Returns { width, height, data }
+// with RGBA bytes. Enough for pixel-art files saved by common editors.
+export function decodePNG(buf) {
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (!sig.every((b, i) => buf[i] === b)) throw new Error('Not a PNG file');
+  let pos = 8;
+  let width, height, depth, type, interlace;
+  let palette = null;
+  let trns = null;
+  const idat = [];
+  while (pos < buf.length) {
+    const len = buf.readUInt32BE(pos);
+    const kind = buf.toString('ascii', pos + 4, pos + 8);
+    const data = buf.subarray(pos + 8, pos + 8 + len);
+    if (kind === 'IHDR') {
+      width = data.readUInt32BE(0); height = data.readUInt32BE(4);
+      depth = data[8]; type = data[9]; interlace = data[12];
+    } else if (kind === 'PLTE') palette = data;
+    else if (kind === 'tRNS') trns = data;
+    else if (kind === 'IDAT') idat.push(data);
+    else if (kind === 'IEND') break;
+    pos += 12 + len;
+  }
+  if (interlace) throw new Error('Interlaced PNGs are not supported; re-save without interlacing');
+  const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[type];
+  if (!channels) throw new Error(`Unsupported PNG colour type ${type}`);
+  if (depth !== 8 && !(type === 3 && depth < 8)) throw new Error(`Unsupported PNG bit depth ${depth} (use 8-bit)`);
+  const raw = inflateSync(Buffer.concat(idat));
+  const bpp = Math.max(1, (channels * depth) / 8);
+  const stride = Math.ceil((width * channels * depth) / 8);
+  const pixels = Buffer.alloc(stride * height);
+  let prev = Buffer.alloc(stride);
+  for (let y = 0; y < height; y++) {
+    const f = raw[y * (stride + 1)];
+    const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
+    const cur = pixels.subarray(y * stride, (y + 1) * stride);
+    for (let x = 0; x < stride; x++) {
+      const a = x >= bpp ? cur[x - bpp] : 0;
+      const b = prev[x];
+      const c = x >= bpp ? prev[x - bpp] : 0;
+      let v = line[x];
+      if (f === 1) v += a;
+      else if (f === 2) v += b;
+      else if (f === 3) v += (a + b) >> 1;
+      else if (f === 4) {
+        const p = a + b - c;
+        const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+      }
+      cur[x] = v & 255;
+    }
+    prev = cur;
+  }
+  const out = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const o = (y * width + x) * 4;
+      const row = y * stride;
+      if (type === 3) {
+        const bitPos = x * depth;
+        const byte = pixels[row + (bitPos >> 3)];
+        const idx = (byte >> (8 - depth - (bitPos & 7))) & ((1 << depth) - 1);
+        out[o] = palette[idx * 3]; out[o + 1] = palette[idx * 3 + 1]; out[o + 2] = palette[idx * 3 + 2];
+        out[o + 3] = trns && idx < trns.length ? trns[idx] : 255;
+      } else {
+        const i = row + x * channels;
+        if (type === 0 || type === 4) {
+          out[o] = out[o + 1] = out[o + 2] = pixels[i];
+          out[o + 3] = type === 4 ? pixels[i + 1] : 255;
+        } else {
+          out[o] = pixels[i]; out[o + 1] = pixels[i + 1]; out[o + 2] = pixels[i + 2];
+          out[o + 3] = type === 6 ? pixels[i + 3] : 255;
+        }
+      }
+    }
+  }
+  return { width, height, data: out };
 }
