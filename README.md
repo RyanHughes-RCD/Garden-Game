@@ -6,9 +6,9 @@ It is a **Progressive Web App (PWA)**: plain HTML/CSS/JavaScript, with no build 
 
 > **Honest note:** a PWA is not a native App Store app. Little Garden runs in Safari's web engine. You install it with **Share → Add to Home Screen**, not from the App Store. No native iOS build is included.
 
-| Garden | Seeds | Collection | Showcase |
+| Garden | Sunset | Night | Showcase |
 |---|---|---|---|
-| ![Garden](docs/screenshots/garden-13.png) | ![Seeds](docs/screenshots/seeds.png) | ![Collection](docs/screenshots/collection.png) | ![Showcase](docs/screenshots/showcase.png) |
+| ![Garden](docs/screenshots/garden-13.png) | ![Sunset](docs/screenshots/garden-sunset.png) | ![Night](docs/screenshots/garden-night.png) | ![Showcase](docs/screenshots/showcase.png) |
 
 ## How to play
 
@@ -18,7 +18,7 @@ It is a **Progressive Web App (PWA)**: plain HTML/CSS/JavaScript, with no build 
 4. **Guess** what it is (optional). Open a growing plot and pick a crop you have already discovered. A correct guess adds a harvest bonus, and earlier guesses pay more.
 5. **Water** at the three checkpoints (a 💧 bubble appears on the plot). Each watering multiplies the harvest value and speeds up growth. If you miss a window, you only lose that window's bonus. Crops never wilt.
 6. **Harvest** when the basket bubble appears. You earn coins, the crop is added to your Collection, and your records may update. The first harvest of each ultra-rare also gives you a unique decoration.
-7. **Decorate**: buy decorations and place them on the grass. Your garden score goes up, and score thresholds award random permanent bonuses.
+7. **Decorate**: buy a decoration and it finds a fitting spot in the garden by itself. Fences go along the fence, benches by the path, ponds in the corners. Tap any decoration to move it or put it in storage. Your garden score goes up, matching sets add bonus points, and score thresholds award random permanent bonuses.
 8. **Visitors** drop by from time to time. Tap them for coins, a free seed, a watering, or faster growth.
 
 ## Game rules (exact numbers)
@@ -67,8 +67,19 @@ At planting time, the game derives the crop, quantity and value variance from th
 
 ### Decoration score and bonuses
 
-* Only **placed** decorations count. Base score by rarity: common 3, uncommon 6, rare 12, epic 24, legendary 45, ultra-rare trophy 80.
-* Each extra placed copy of the same decoration counts **×0.6** of the previous copy.
+* Only decorations **in the garden** count. Base score by rarity: common 3, uncommon 6, rare 12, epic 24, legendary 45, ultra-rare trophy 80.
+* Each extra copy of the same decoration in the garden counts **×0.6** of the previous copy.
+* **Matching sets** add a one-time bonus to the score while every piece is in the garden. Completed sets sparkle.
+
+| Set | Pieces | Bonus |
+|---|---|---|
+| Cottage Corner | Birdhouse, Garden Bench, Flower Crate, Garden Sign | +12 |
+| Farmyard | Hay Bale, Scarecrow, Wheelbarrow, Log Fence | +12 |
+| Homely Garden | Picket Fence, Clay Pot, Old Watering Can, Birdbath | +10 |
+| Zen Garden | Stone Lantern, Pebble Pile, Stepping Stones, Little Pond | +18 |
+| Fairy Glade | Mushroom Ring, Fairy Ring, Garden Gnome, Crystal Geode | +25 |
+| Grand Estate | Fountain, Topiary Bush, Flower Arch, Golden Gnome | +30 |
+
 * Thresholds: **10, 25, 45, 70, 100, 140, 190, 250, 320, 400, 500, 620, 760, 900**. They are measured against your best score ever, so each one pays out once. Moving or storing decorations cannot farm or reroll bonuses. Decorations cannot be sold, so coins cannot loop back out of them.
 * Each threshold awards one random bonus type, picked from the types that are not yet maxed:
 
@@ -81,6 +92,12 @@ At planting time, the game derives the crop, quantity and value variance from th
 | Welcoming Garden | visitors 20% more often | 4 | +80% |
 
   If every type is maxed, a threshold pays 500 coins instead. Each extra copy of a decoration costs 50% more than the last, which gives late-game coins somewhere to go.
+
+### The garden scene
+
+The garden is one hand-drawn pixel-art picture: a lawn, a fence with a flower border, a raised bed around the crops and a winding stone path. Decorations stand in 23 *nooks* around the beds, sorted so that items in front overlap items behind. Each nook has a zone (fence, beside the beds, path or front corner), and every decoration has a favourite zone; the layout lives in `src/data/garden.js`.
+
+The scene comes alive with swaying grass, butterflies, petals drifting from cherry trees and flower arches, and visitors wandering between free nooks. The light follows your device's clock: golden around sunset, deep blue at night with fireflies, and lamps, lanterns and other glowing decorations lighting up after dark.
 
 ### Visitors
 
@@ -142,7 +159,8 @@ src/
   main.js               Boot, navigation, timer loop, service worker registration
   styles.css            Mobile-first styles and animations
   core/                 Pure game logic: rng.js (seeded RNG), state.js (save/migrate), game.js (rules)
-  data/                 config.js (all tuning), crops.js (100 crops), decorations.js, visitors.js
+  data/                 config.js (all tuning), crops.js (100 crops), decorations.js, visitors.js,
+                        garden.js (scene nooks, zones, matching sets)
   art/                  Pixel-art templates + palettes; sprites.js builds every sprite (PNG overrides first)
   ui/                   Screens (garden, seeds, collection, decor, records, showcase) and modals
 assets/fonts/           Pixelify Sans (OFL), bundled for offline use
@@ -182,7 +200,7 @@ To import crops, name each file by its crop key (`velvet-rose.png`) or number (`
 
 ### The pixel-art system
 
-All art is real pixel art defined as data. Each sprite is a grid of characters mapped to a small palette (`src/art/*Art.js`). At runtime the game draws every sprite onto a canvas with nearest-neighbour scaling, and the Node tools use the same data to export the PNG icons and sprite sheets. The 100 crops share about 40 hand-drawn silhouette templates. Each crop gets its own palette and effect, and the 5 ultra-rares have unique templates. Growth stages come from 12 growth-family templates (`src/art/growthArt.js`). Any sprite can be replaced with a PNG through the art pipeline above.
+All art is real pixel art defined as data. Each sprite is a grid of characters mapped to a small palette (`src/art/*Art.js`). At runtime the game draws every sprite onto a canvas with nearest-neighbour scaling, and the Node tools use the same data to export the PNG icons and sprite sheets. The 100 crops share about 40 hand-drawn silhouette templates. Each crop gets its own palette and effect, and the 5 ultra-rares have unique templates. Growth stages come from 12 growth-family templates (`src/art/growthArt.js`). The garden background is painted by `src/art/sceneArt.js` and can be replaced as one 80×112 PNG (`assets/art/ui/garden-scene.png`). Any sprite can be replaced with a PNG through the art pipeline above.
 
 To **add or rebalance a crop**, edit its row in `src/data/crops.js`. The tests check that there are still exactly 100 crops, that 5 of them are ultra-rare, that each one looks distinct, and that every tier's odds are consistent.
 

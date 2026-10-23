@@ -30,7 +30,7 @@ for (let step = 0; step < 21 * 6; step++) {
   if (price && s.coins > price * 2) G.unlockPlot(s);
   const free = s.decorTiles.indexOf(null);
   const dec = DECORATIONS.filter((d) => !d.trophy && !s.decorOwned[d.id] && d.price * 4 < s.coins).sort((a, b) => b.price - a.price)[0];
-  if (free >= 0 && dec) { G.buyDecor(s, dec.id); G.placeDecor(s, free, dec.id, now); }
+  if (free >= 0 && dec) { G.buyDecor(s, dec.id); G.autoPlaceDecor(s, dec.id, now); }
   s.plots.forEach((p, i) => {
     if (!p.unlocked || p.crop) return;
     const t = (step + i) % 3 === 0 ? SEED_TIERS[0] : tiers.find((x) => G.seedPrice(s, x.id) <= s.coins * 0.25) || SEED_TIERS[0];
@@ -66,9 +66,24 @@ try {
     await ctx.addInitScript((save) => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('littleGarden.save', save); sessionStorage.setItem('seeded', '1'); } }, json);
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(e.message));
+    // fixed local times so the day/night lighting is predictable
+    const at = (hh) => { const d = new Date(); d.setHours(hh, 30, 0, 0); return d.getTime(); };
+    await page.clock.setFixedTime(at(12));
     await page.goto(`http://localhost:${PORT}/`);
-    await page.waitForTimeout(3500);
+    await page.waitForTimeout(1500);
+    // the fixed clock can trigger the "welcome back" summary; close it
+    while (await page.locator('.modal').count()) { await page.locator('.backdrop').last().click({ position: { x: 5, y: 5 } }); await page.waitForTimeout(300); }
+    await page.waitForTimeout(2000);
     await page.screenshot({ path: `${outDir}/garden-${label}.png` });
+    if (label === '13') {
+      for (const [name, hh] of [['sunset', 18], ['night', 22]]) {
+        await page.clock.setFixedTime(at(hh));
+        await page.waitForTimeout(3200);
+        await page.screenshot({ path: `${outDir}/garden-${name}.png` });
+      }
+      await page.clock.setFixedTime(at(12));
+      await page.waitForTimeout(1500);
+    }
     if (label === '13') {
       for (const tab of ['seeds', 'collection', 'decor', 'records']) {
         await page.click(`#tabbar button[data-tab="${tab}"]`);

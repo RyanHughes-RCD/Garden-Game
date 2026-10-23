@@ -57,7 +57,7 @@ async function boot() {
   for (const b of $$('#tabbar button')) {
     b.addEventListener('click', () => {
       sfx('tap');
-      if (app.placing && b.dataset.tab !== 'garden') app.placing = null;
+      if (app.moving != null && b.dataset.tab !== 'garden') app.moving = null;
       app.setTab(b.dataset.tab);
     });
   }

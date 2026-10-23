@@ -1,6 +1,6 @@
 // Service worker: precaches the whole game so it works offline. Paths are
 // relative to the worker's location, so it works under a GitHub Pages subpath.
-const VERSION = 'little-garden-v1.1.0';
+const VERSION = 'little-garden-v1.2.0';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   './src/data/crops.js',
   './src/data/decorations.js',
   './src/data/visitors.js',
+  './src/data/garden.js',
   './src/art/pixel.js',
   './src/art/sprites.js',
   './src/art/growthArt.js',
@@ -22,8 +23,10 @@ const ASSETS = [
   './src/art/decorArt.js',
   './src/art/visitorArt.js',
   './src/art/uiArt.js',
+  './src/art/sceneArt.js',
   './src/ui/app.js',
   './src/ui/audio.js',
+  './src/ui/ambient.js',
   './src/ui/collection.js',
   './src/ui/decor.js',
   './src/ui/dom.js',

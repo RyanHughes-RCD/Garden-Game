@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
+import { NOOKS } from '../src/data/garden.js';
 
 const require = createRequire(import.meta.url);
 let playwright;
@@ -152,22 +153,35 @@ try {
   await page.clock.runFor(1500);
   await tap('#tabbar button[data-tab="decor"]');
   await shot('13-decor-shop');
-  for (const name of ['Garden Gnome', 'Birdhouse']) {
-    await tap(`.decor-card:has-text("${name}") button.gold`);
-  }
-  await tap('.decor-card:has-text("Garden Gnome") button:has-text("Place")');
-  await shot('14-placing');
-  await tap('button[aria-label="Decoration spot 1"]');
+  // buying puts a decoration straight into a fitting nook (and can earn a bonus)
+  await tap('.decor-card:has-text("Garden Gnome") button.gold');
   await page.clock.runFor(2500);
   await shot('15-bonus');
   await tap('.modal button:has-text("Wonderful!")');
+  await tap('.decor-card:has-text("Birdhouse") button.gold');
   s = await save();
-  assert.equal(s.decorTiles[0], 'gnome');
   assert.ok(s.bonuses.length >= 1, 'threshold bonus awarded');
-  await tap('button[aria-label="Decoration spot 3"]');
-  await tap('.sheet .decor-card');
+  const gnomeAt = s.decorTiles.indexOf('gnome');
+  const birdAt = s.decorTiles.indexOf('birdhouse');
+  assert.equal(NOOKS[gnomeAt].zone, 'side', 'gnome stands beside the beds');
+  assert.equal(NOOKS[birdAt].zone, 'back', 'birdhouse stands by the fence');
+  await tap('.tabs button:has-text("Sets")');
+  await shot('13b-sets');
+  assert.ok(await page.locator('.set-panel').count() >= 6);
+
+  // move the gnome to a front corner
+  await tap('#tabbar button[data-tab="garden"]');
+  await shot('14-garden-decor');
+  await page.locator(`button[aria-label="Garden Gnome (spot ${gnomeAt + 1})"]`).click();
+  await page.clock.runFor(400);
+  await tap('.sheet button:has-text("Move")');
+  await shot('14b-moving');
+  const corner = NOOKS.findIndex((n, i) => n.zone === 'corner' && !s.decorTiles[i]);
+  await page.locator(`button[aria-label="Empty spot ${corner + 1}"]`).click();
+  await page.clock.runFor(600);
   s = await save();
-  assert.equal(s.decorTiles[2], 'birdhouse');
+  assert.equal(s.decorTiles[corner], 'gnome');
+  assert.equal(s.decorTiles[gnomeAt], null);
 
   // unlock a plot
   await tap('button[aria-label="Plot 5"]');

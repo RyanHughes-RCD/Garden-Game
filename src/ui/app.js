@@ -11,7 +11,7 @@ const screens = {};
 export const app = {
   state: null,
   tab: 'garden',
-  placing: null, // decoration id being placed, or null
+  moving: null, // nook index of a decoration being moved, or null
   listeners: new Set(),
 
   now() {

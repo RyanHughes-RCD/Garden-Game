@@ -10,6 +10,7 @@ import { TEMPLATE_FAMILY, stageTemplate } from './growthArt.js';
 import { DECOR_TEMPLATES } from './decorArt.js';
 import { VISITOR_TEMPLATES } from './visitorArt.js';
 import { UI_TEMPLATES } from './uiArt.js';
+import { paintScene, AMBIENT } from './sceneArt.js';
 import { CROP_BY_ID } from '../data/crops.js';
 
 export const STAGE_COUNT = 5;
@@ -141,6 +142,7 @@ export function proceduralDecorGrid(id) {
 }
 
 export function proceduralUiGrid(name) {
+  if (name === 'garden-scene') return paintScene();
   const tpl = UI_TEMPLATES[name];
   if (!tpl) throw new Error(`Unknown UI sprite ${name}`);
   return renderTemplate(tpl, tpl.palette);
@@ -153,8 +155,18 @@ export function uiGrid(name) {
   });
 }
 
+// Every overridable UI sprite name, including the full garden background.
+export const UI_NAMES = [...Object.keys(UI_TEMPLATES), 'garden-scene'];
+
 export function hasUi(name) {
-  return !!UI_TEMPLATES[name];
+  return UI_NAMES.includes(name);
+}
+
+// The garden background picture (80×112, overridable as ui/garden-scene.png).
+export const sceneGrid = () => uiGrid('garden-scene');
+
+export function ambientGrid(name) {
+  return AMBIENT[name];
 }
 
 export { compose, silhouette, mix };

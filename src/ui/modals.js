@@ -11,7 +11,7 @@ import {
   img, uiImg, cropImg, decorImg, visitorImg, rarityTag, stars, fmtNum, fmtDuration, fmtClock,
 } from './render.js';
 import { sfx } from './audio.js';
-import { startPlacing } from './garden.js';
+import { placeNow } from './garden.js';
 
 
 function rayColor(r) {
@@ -72,7 +72,7 @@ export function showHarvestResult(res) {
       h('b', {}, 'Ultra-rare reward!'),
       h('div', { class: 'detail-head', style: { justifyContent: 'center', marginTop: '6px' } }, decorImg(d.id)),
       h('div', {}, `Unique decoration: ${d.name}`),
-      h('button', { class: 'btn gold block', style: { marginTop: '8px' }, onclick: () => { closeOverlay(entry); startPlacing(d.id); } }, 'Place it now')));
+      h('button', { class: 'btn gold block', style: { marginTop: '8px' }, onclick: () => { closeOverlay(entry); placeNow(d.id); } }, 'Add to garden')));
   }
   body.append(h('button', { class: 'btn block', style: { marginTop: '12px' }, onclick: () => closeOverlay(entry) }, 'Collect'));
   body.style.setProperty('--c', info.color);

@@ -11,11 +11,10 @@ import { join, basename } from 'node:path';
 import { CROPS } from '../src/data/crops.js';
 import { DECORATIONS } from '../src/data/decorations.js';
 import { VISITOR_TYPES } from '../src/data/visitors.js';
-import { UI_TEMPLATES } from '../src/art/uiArt.js';
 import { INK, scaleGrid, outline, rgbToHex, hexToRgb } from '../src/art/pixel.js';
 import {
   proceduralCropGrid, proceduralStageGrid, proceduralDecorGrid, proceduralVisitorGrid, proceduralUiGrid,
-  familyOf, stageGrid, decorGrid, visitorGrid, uiGrid,
+  familyOf, stageGrid, decorGrid, visitorGrid, uiGrid, UI_NAMES,
 } from '../src/art/sprites.js';
 import { VISITOR_TEMPLATES } from '../src/art/visitorArt.js';
 import { decodePNG, Bitmap } from './png.mjs';
@@ -104,7 +103,7 @@ function catalogue(kind) {
   if (kind === 'crops') return CROPS.map((c) => ({ key: c.key, crop: c, rarity: c.rarity }));
   if (kind === 'decor') return DECORATIONS.map((d) => ({ key: d.id, rarity: d.rarity }));
   if (kind === 'visitors') return VISITOR_TYPES.map((v) => ({ key: v.id }));
-  if (kind === 'ui') return Object.keys(UI_TEMPLATES).map((k) => ({ key: k }));
+  if (kind === 'ui') return UI_NAMES.map((k) => ({ key: k }));
   throw new Error(`Unknown kind "${kind}" (use ${KINDS.join(', ')} or all)`);
 }
 
@@ -149,7 +148,7 @@ function proceduralFrames(kind, e, args) {
   }
   if (kind === 'decor') return [proceduralDecorGrid(e.key)];
   if (kind === 'visitors') return VISITOR_TEMPLATES[e.key].alt ? [proceduralVisitorGrid(e.key, 0), proceduralVisitorGrid(e.key, 1)] : [proceduralVisitorGrid(e.key, 0)];
-  return [squareUp(proceduralUiGrid(e.key))];
+  return [e.key === 'garden-scene' ? proceduralUiGrid(e.key) : squareUp(proceduralUiGrid(e.key))];
 }
 
 // UI icons are not always square; pad them so frames stay square.
@@ -397,7 +396,7 @@ export function checkArt() {
       let frames;
       try { frames = readPNGFrames(join(dir, f)); } catch (err) { problems.push(`${kind}/${f}: ${err.message}`); continue; }
       const { w, h } = frames[0];
-      if (w !== h) problems.push(`${kind}/${f}: frames must be square (${w}×${h}); width must be a multiple of height`);
+      if (w !== h && key !== 'garden-scene') problems.push(`${kind}/${f}: frames must be square (${w}×${h}); width must be a multiple of height`);
       const n = frames.length;
       const ok = kind === 'crops' ? n === 1 || n === 5 : kind === 'visitors' ? n <= 2 : n === 1;
       if (!ok) problems.push(`${kind}/${f}: wrong frame count ${n}`);
@@ -439,7 +438,7 @@ function cmdPreview() {
   const others = [
     ...DECORATIONS.map((d) => decorGrid(d.id)),
     ...VISITOR_TYPES.flatMap((v) => [visitorGrid(v.id, 0), visitorGrid(v.id, 1)]),
-    ...Object.keys(UI_TEMPLATES).map((k) => uiGrid(k)),
+    ...UI_NAMES.filter((k) => k !== 'garden-scene').map((k) => uiGrid(k)),
   ];
   const cols = 10;
   const sheet = new Bitmap(cols * (S + 8), Math.ceil(others.length / cols) * (S + 8), '#86cf5e');

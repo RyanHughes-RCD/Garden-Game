@@ -1,13 +1,15 @@
-// Garden screen: the 5x7 tile scene with plots, decorations and visitors.
+// Garden screen: a hand-drawn garden scene with crop beds, decorations in
+// nooks, visitors and ambient life.
 import { h, clear } from './dom.js';
 import { app, openSheet, closeOverlay, closeAllOverlays, toast, flyCoins } from './app.js';
 import * as G from '../core/game.js';
-import { DECOR_TILES } from '../core/state.js';
 import { PLOT_TILES, GARDEN_COLS, GARDEN_ROWS, SEED_TIERS, MINUTE, RARITY_INFO, WATERING, GUESS_BONUS } from '../data/config.js';
+import { NOOKS } from '../data/garden.js';
 import { CROP_BY_ID } from '../data/crops.js';
-import { DECOR_BY_ID, DECORATIONS } from '../data/decorations.js';
+import { DECOR_BY_ID } from '../data/decorations.js';
 import { VISITOR_BY_ID } from '../data/visitors.js';
-import { uiGrid, visitorGrid, familyOf, STAGE_NAMES } from '../art/sprites.js';
+import { uiGrid, visitorGrid, sceneGrid, familyOf, STAGE_NAMES } from '../art/sprites.js';
+import { mountAmbient, updateAmbient } from './ambient.js';
 import { PACKET_FOR_TIER } from '../art/uiArt.js';
 import {
   img, uiImg, stageImg, cropImg, decorImg, visitorImg, gridURL, coinAmount, fmtDuration, fmtClock, rarityTag, fmtNum,
@@ -15,15 +17,10 @@ import {
 import { showPlanted, showHarvestResult, showHarvestSummary, showVisitor, showBonusAwards } from './modals.js';
 import { sfx } from './audio.js';
 
-const tileMap = new Map(); // "x,y" -> { kind: 'plot'|'decor', index }
-PLOT_TILES.forEach(([x, y], i) => tileMap.set(`${x},${y}`, { kind: 'plot', index: i }));
-DECOR_TILES.forEach(([x, y], i) => tileMap.set(`${x},${y}`, { kind: 'decor', index: i }));
-
-const GRASS = ['grass1', 'grass2', 'grass3'];
-const grassFor = (x, y) => GRASS[(x * 7 + y * 13 + ((x * y) % 3)) % 3];
-
-let view = null; // { root, scene, tiles: Map, hint, fx, visitorEl }
+let view = null; // { root, scene, plots: [], decor: [], hint, fx, visitorEl }
 let justPlanted = -1;
+
+const artPx = (n) => `calc(var(--tile) * ${n / 16})`;
 
 export function render(root) {
   const wrap = h('div', { class: 'garden-wrap' });
@@ -31,20 +28,32 @@ export function render(root) {
   const scene = h('div', { class: 'scene' });
   const fx = h('div', { class: 'fx-layer' });
   const frame = h('div', { class: 'scene-frame' }, scene);
-  scene.append(fx);
   const hint = h('div', { class: 'garden-hint' });
   wrap.append(banner, frame, hint);
   root.append(wrap);
 
-  view = { root, wrap, scene, frame, fx, hint, banner, tiles: new Map(), visitorEl: null, visitorSpot: -1 };
-  for (let y = 0; y < GARDEN_ROWS; y++) {
-    for (let x = 0; x < GARDEN_COLS; x++) {
-      const el = h('div', { class: 'tile' });
-      el.style.backgroundImage = `url(${gridURL(uiGrid(grassFor(x, y)))})`;
-      scene.insertBefore(el, fx);
-      view.tiles.set(`${x},${y}`, { el, sig: '' });
-    }
-  }
+  scene.append(img(sceneGrid(), 'scene-bg'));
+  const ambientLayer = h('div', { class: 'ambient' });
+  scene.append(ambientLayer);
+  view = { root, wrap, scene, frame, fx, hint, banner, plots: [], decor: [], visitorEl: null, visitorSpot: -1, ambientLayer };
+
+  PLOT_TILES.forEach(([x, y]) => {
+    const el = h('div', { class: 'tile plot' });
+    el.style.left = artPx(x * 16);
+    el.style.top = artPx(y * 16);
+    scene.append(el);
+    view.plots.push({ el, sig: '' });
+  });
+  NOOKS.forEach((n, i) => {
+    const el = h('div', { class: 'nook' });
+    el.style.left = artPx(n.x - 8);
+    el.style.top = artPx(n.y - 15);
+    el.style.zIndex = String(10 + n.y);
+    scene.append(el);
+    view.decor.push({ el, sig: '', nook: n, index: i });
+  });
+  scene.append(fx);
+  mountAmbient(ambientLayer, scene);
   sizeScene();
   update(root);
 }
@@ -52,7 +61,7 @@ export function render(root) {
 export function sizeScene() {
   if (!view) return;
   const root = view.root;
-  const bannerH = app.placing ? 64 : 0;
+  const bannerH = app.moving != null ? 64 : 0;
   const availW = Math.min(root.clientWidth, 640) - 16 - 22;
   const availH = root.clientHeight - 22 - 20 - 84 - bannerH;
   let tile = Math.floor(Math.min(availW / GARDEN_COLS, availH / GARDEN_ROWS) / 8) * 8;
@@ -66,7 +75,7 @@ function plotSig(i, now) {
     const next = G.nextPlotIndex(app.state) === i;
     return `locked|${next}|${next ? G.nextPlotPrice(app.state) : ''}`;
   }
-  if (!p.crop) return `empty|${app.placing ? 'p' : ''}`;
+  if (!p.crop) return 'empty';
   const st = G.cropStatus(p.crop, now);
   const last = Math.max(0, ...p.crop.waters.filter((w) => w != null));
   const wet = last && now - last < 40 * MINUTE;
@@ -106,16 +115,35 @@ function buildPlot(i, now) {
   return { els, cls: st.ready ? 'ready' : 'growing' };
 }
 
-function decorSig(i) {
-  return `d|${app.state.decorTiles[i] || ''}|${app.placing || ''}`;
+// Decorations that belong to a completed matching set get a gentle sparkle.
+function completedSetItems() {
+  const ids = new Set();
+  for (const set of G.setProgress(app.state)) if (set.complete) set.items.forEach((id) => ids.add(id));
+  return ids;
 }
 
-function buildDecor(i) {
-  const id = app.state.decorTiles[i];
+function buildNook(v, inSet) {
+  const id = app.state.decorTiles[v.index];
+  const moving = app.moving;
   const els = [];
-  let cls = id ? 'decor' : 'decor-empty';
-  if (id) els.push(decorImg(id, 'layer'));
-  if (app.placing) cls += id ? ' placing-swap' : ' placing';
+  let cls = 'nook';
+  if (id) {
+    els.push(h('i', { class: 'nook-shadow' }), decorImg(id, 'layer decor-img'));
+    if (inSet) { els.push(h('i', { class: 'set-sparkle' }), h('i', { class: 'set-sparkle s2' })); cls += ' in-set'; }
+    cls += ' filled';
+    if (moving === v.index) cls += ' lifted';
+  } else if (moving != null) {
+    els.push(h('i', { class: 'nook-marker' }));
+    cls += ' free';
+  }
+  const interactive = id || moving != null;
+  if (interactive) {
+    els.push(h('button', {
+      class: 'hit',
+      'aria-label': id ? `${DECOR_BY_ID[id].name} (spot ${v.index + 1})` : `Empty spot ${v.index + 1}`,
+      onclick: () => tapDecor(v.index, v.el),
+    }));
+  }
   return { els, cls };
 }
 
@@ -124,40 +152,53 @@ export function update(root) {
   const now = app.now();
   const s = app.state;
 
-  // placement banner
-  if (app.placing) {
-    const d = DECOR_BY_ID[app.placing];
+  // move-mode banner
+  if (app.moving != null && s.decorTiles[app.moving]) {
+    const d = DECOR_BY_ID[s.decorTiles[app.moving]];
     clear(view.banner);
     view.banner.hidden = false;
-    view.banner.append(decorImg(d.id), h('div', { class: 'text' }, h('b', {}, `Placing: ${d.name}`), h('br'), `Tap a spot. ${G.availableDecor(s, d.id)} left to place.`),
-      h('button', { class: 'btn small plain', onclick: () => { app.placing = null; sizeScene(); app.refresh(); } }, 'Done'));
+    view.banner.append(decorImg(d.id), h('div', { class: 'text' }, h('b', {}, `Moving: ${d.name}`), h('br'), 'Tap a sparkle, or another decoration to swap.'),
+      h('button', { class: 'btn small plain', onclick: () => { app.moving = null; sizeScene(); app.refresh(); } }, 'Cancel'));
   } else {
+    if (app.moving != null) { app.moving = null; sizeScene(); }
     view.banner.hidden = true;
   }
 
-  for (const [key, t] of view.tiles) {
-    const info = tileMap.get(key);
-    const sig = info.kind === 'plot' ? plotSig(info.index, now) : decorSig(info.index);
+  view.plots.forEach((t, i) => {
+    const sig = plotSig(i, now);
     if (sig !== t.sig) {
       t.sig = sig;
-      const built = info.kind === 'plot' ? buildPlot(info.index, now) : buildDecor(info.index);
+      const built = buildPlot(i, now);
       clear(t.el);
-      t.el.className = `tile ${info.kind} ${built.cls}`;
-      if (info.kind === 'plot' && info.index === justPlanted) {
+      t.el.className = `tile plot ${built.cls}`;
+      if (i === justPlanted) {
         t.el.classList.add('just-planted');
         justPlanted = -1;
       }
       t.el.append(...built.els, h('button', {
         class: 'hit',
-        'aria-label': info.kind === 'plot' ? `Plot ${info.index + 1}` : `Decoration spot ${info.index + 1}`,
-        onclick: () => (info.kind === 'plot' ? tapPlot(info.index, t.el) : tapDecor(info.index, t.el)),
+        'aria-label': `Plot ${i + 1}`,
+        onclick: () => tapPlot(i, t.el),
       }));
-    } else if (info.kind === 'plot') {
-      const p = s.plots[info.index];
+    } else {
+      const p = s.plots[i];
       const bar = t.el.querySelector('.bar i');
       if (bar && p.crop) bar.style.width = `${Math.round(G.cropStatus(p.crop, now).progress * 100)}%`;
     }
+  });
+
+  const inSet = completedSetItems();
+  for (const v of view.decor) {
+    const id = s.decorTiles[v.index];
+    const sig = `${id || ''}|${app.moving}|${id && inSet.has(id)}`;
+    if (sig === v.sig) continue;
+    v.sig = sig;
+    const built = buildNook(v, id && inSet.has(id));
+    clear(v.el);
+    v.el.className = built.cls;
+    v.el.append(...built.els);
   }
+  updateAmbient(now);
   updateVisitor();
   updateHint(now);
 }
@@ -188,18 +229,20 @@ function updateVisitor() {
   }, 1600);
 }
 
+// Visitors wander between free nooks (or anywhere if the garden is full).
 function moveVisitor(initial) {
   const el = view && view.visitorEl;
   if (!el) return;
-  const empty = DECOR_TILES.map((t, i) => i).filter((i) => !app.state.decorTiles[i]);
-  const pool = empty.length ? empty : DECOR_TILES.map((t, i) => i);
+  const empty = NOOKS.map((n, i) => i).filter((i) => !app.state.decorTiles[i]);
+  const pool = empty.length ? empty : NOOKS.map((n, i) => i);
   let spot = pool[Math.floor(Math.random() * pool.length)];
   if (pool.length > 1 && spot === view.visitorSpot) spot = pool[(pool.indexOf(spot) + 1) % pool.length];
   view.visitorSpot = spot;
-  const [x, y] = DECOR_TILES[spot];
+  const n = NOOKS[spot];
   if (initial) el.style.transition = 'none';
-  el.style.left = `calc(var(--tile) * ${x})`;
-  el.style.top = `calc(var(--tile) * ${y})`;
+  el.style.left = artPx(n.x - 8);
+  el.style.top = artPx(n.y - 15);
+  el.style.zIndex = String(11 + n.y);
   if (initial) requestAnimationFrame(() => { el.style.transition = ''; });
 }
 
@@ -231,9 +274,9 @@ function updateHint(now) {
   let action = null;
   const sig = [];
 
-  if (app.placing) {
+  if (app.moving != null) {
     icon = 'star';
-    text = h('span', {}, h('b', {}, 'Decorating'), h('br'), 'Each decoration adds to your score. Duplicates count for less.');
+    text = h('span', {}, h('b', {}, 'Rearranging'), h('br'), 'Decorations score the same wherever they stand.');
   } else if (s.visitor.current) {
     const v = VISITOR_BY_ID[s.visitor.current.type];
     icon = 'heart';
@@ -277,14 +320,13 @@ function updateHint(now) {
 // ---------------------------------------------------------------- plot actions
 
 function tileEl(kind, index) {
-  const pos = kind === 'plot' ? PLOT_TILES[index] : DECOR_TILES[index];
-  return view.tiles.get(`${pos[0]},${pos[1]}`).el;
+  return kind === 'plot' ? view.plots[index].el : view.decor[index].el;
 }
 
 function tapPlot(i, el) {
   sfx('tap');
-  if (app.placing) {
-    toast('Decorations go on the grass, not in plots.');
+  if (app.moving != null) {
+    toast('Decorations go on the lawn, not in the beds.');
     return;
   }
   const s = app.state;
@@ -539,57 +581,55 @@ function openGuessPicker(i, onDone) {
 function tapDecor(i, el) {
   sfx('tap');
   const s = app.state;
-  if (app.placing) {
-    const id = app.placing;
-    const res = app.commit((st, now) => G.placeDecor(st, i, id, now));
-    if (!res.ok) return;
-    sfx('place');
-    sparkFx(el);
-    if (G.availableDecor(app.state, id) < 1) {
-      app.placing = null;
-      sizeScene();
-      app.refresh();
-    }
-    if (res.awards && res.awards.length) showBonusAwards(res.awards);
+  if (app.moving != null) {
+    const from = app.moving;
+    app.moving = null;
+    const res = app.commit((st) => G.moveDecor(st, from, i));
+    sizeScene();
+    app.refresh();
+    if (res.ok && from !== i) { sfx('place'); sparkFx(el); }
     return;
   }
   const id = s.decorTiles[i];
-  if (!id) return openPlaceList(i);
+  if (!id) return;
   const d = DECOR_BY_ID[id];
+  const set = G.setProgress(s).find((x) => x.items.includes(id));
   const entry = openSheet(d.name, h('div', {},
     h('div', { class: 'detail-head' }, decorImg(id),
       h('div', {}, rarityTag(d.rarity), h('p', { class: 'muted small' }, d.desc), h('div', { class: 'small' }, `Base score +${d.score}`))),
+    set ? setPanel(set) : null,
     h('div', { class: 'btn-row', style: { marginTop: '12px' } },
       h('button', { class: 'btn plain', onclick: () => { closeOverlay(entry); app.commit((st) => G.removeDecor(st, i)); toast(`${d.name} moved to storage.`); } }, 'Store'),
-      h('button', { class: 'btn', onclick: () => { closeOverlay(entry); openPlaceList(i); } }, 'Swap'))));
+      h('button', { class: 'btn', onclick: () => { closeOverlay(entry); app.moving = i; sizeScene(); app.refresh(); } }, 'Move'))));
 }
 
-function openPlaceList(i) {
-  const s = app.state;
-  const avail = DECORATIONS.filter((d) => G.availableDecor(s, d.id) > 0);
-  const body = h('div', {});
-  if (!avail.length) {
-    body.append(h('p', {}, 'You have no decorations in storage. Buy some in the Decor shop!'),
-      h('button', { class: 'btn block gold', onclick: () => { closeAllOverlays(); app.setTab('decor'); } }, 'Open Decor shop'));
-  } else {
-    const grid = h('div', { class: 'decor-grid' });
-    for (const d of avail) {
-      grid.append(h('button', {
-        class: 'decor-card', style: { textAlign: 'left' },
-        onclick: () => {
-          closeOverlay(entry);
-          const res = app.commit((st, now) => G.placeDecor(st, i, d.id, now));
-          if (res.ok) {
-            sfx('place');
-            sparkFx(tileEl('decor', i));
-            if (res.awards && res.awards.length) showBonusAwards(res.awards);
-          }
-        },
-      }, h('div', { class: 'top' }, decorImg(d.id), h('div', {}, h('div', { class: 'name' }, d.name), h('div', { class: 'meta' }, `×${G.availableDecor(s, d.id)} · +${d.score}`)))));
-    }
-    body.append(grid);
+// A small panel showing a matching set's pieces.
+export function setPanel(set) {
+  return h('div', { class: `panel set-panel${set.complete ? ' complete' : ''}` },
+    h('div', { class: 'set-head' }, h('b', {}, set.name), h('span', { class: 'small' }, set.complete ? `Complete! +${set.bonus} score` : `${set.have.length}/${set.items.length} · +${set.bonus} when complete`)),
+    h('div', { class: 'set-items' }, set.items.map((id) => {
+      const im = decorImg(id, set.have.includes(id) ? '' : 'missing', DECOR_BY_ID[id].name);
+      im.title = DECOR_BY_ID[id].name;
+      return im;
+    })));
+}
+
+// Put a stored decoration into the garden automatically and show it there.
+export function placeNow(id, { goToGarden = true } = {}) {
+  const doneBefore = new Set(G.setProgress(app.state).filter((x) => x.complete).map((x) => x.id));
+  const res = app.commit((st, now) => G.autoPlaceDecor(st, id, now));
+  if (!res.ok) return res;
+  sfx('place');
+  if (goToGarden) {
+    closeAllOverlays();
+    app.setTab('garden');
+    requestAnimationFrame(() => view && sparkFx(view.decor[res.nook].el, 10));
   }
-  const entry = openSheet('Place a decoration', body);
+  for (const set of G.setProgress(app.state)) {
+    if (set.complete && !doneBefore.has(set.id)) { sfx('bonus'); toast(`${set.name} complete! +${set.bonus} score`); }
+  }
+  if (res.awards && res.awards.length) showBonusAwards(res.awards);
+  return res;
 }
 
 // ---------------------------------------------------------------- effects
@@ -644,12 +684,4 @@ function harvestFx(el, value) {
     view.fx.append(t);
     setTimeout(() => t.remove(), 1300);
   }
-}
-
-export function startPlacing(id) {
-  app.placing = id;
-  closeAllOverlays();
-  app.setTab('garden');
-  sizeScene();
-  app.refresh();
 }

@@ -55,8 +55,20 @@ const ROWS = [
   ['trophy-dawn', 'Dawn Pedestal', 'ultra', 0, 'Awarded for harvesting a Crown of Dawn.'],
 ];
 
+// Where each decoration likes to stand (see NOOKS zones in garden.js), and
+// which ones glow after dark.
+const SPOT = {
+  back: ['picket-fence', 'log-fence', 'beehive', 'scarecrow', 'topiary', 'flower-arch', 'windmill', 'cherry-tree', 'rainbow-arch', 'moon-gate', 'birdhouse'],
+  path: ['stepping-stones', 'garden-sign', 'bench', 'lamp-post', 'sundial', 'stone-lantern', 'star-lamp', 'birdbath', 'flower-crate'],
+  corner: ['pond', 'well', 'fountain', 'geode', 'dragon-statue', 'trophy-rainbow', 'trophy-phoenix', 'trophy-starfall', 'trophy-dragon', 'trophy-dawn'],
+};
+const spotOf = (id) => Object.keys(SPOT).find((z) => SPOT[z].includes(id)) || 'side';
+const GLOWS = ['lamp-post', 'stone-lantern', 'star-lamp', 'fairy-ring', 'moon-gate', 'trophy-phoenix', 'trophy-starfall', 'geode'];
+
 export const DECORATIONS = ROWS.map(([id, name, rarity, price, desc]) => ({
   id, name, rarity, price, desc,
+  spot: spotOf(id),
+  glow: GLOWS.includes(id),
   score: DECOR_SCORE[rarity],
   trophy: rarity === 'ultra',
 }));

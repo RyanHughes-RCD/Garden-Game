@@ -2,10 +2,10 @@
 import { h } from './dom.js';
 import { app, openOverlay, closeOverlay, toast } from './app.js';
 import * as G from '../core/game.js';
-import { DECOR_TILES } from '../core/state.js';
+import { NOOKS } from '../data/garden.js';
 import { PLOT_TILES, GARDEN_COLS, GARDEN_ROWS, RARITY_INFO, BONUS_TYPES } from '../data/config.js';
 import { CROP_BY_ID } from '../data/crops.js';
-import { uiGrid, decorGrid, stageGrid, cropGrid } from '../art/sprites.js';
+import { uiGrid, decorGrid, stageGrid, cropGrid, sceneGrid } from '../art/sprites.js';
 import { gridCanvas, fmtNum, fmtDate } from './render.js';
 
 const W = 720;
@@ -79,9 +79,7 @@ export async function renderShowcase(state, now) {
   ctx.lineWidth = 5;
   ctx.strokeStyle = INK;
   ctx.stroke();
-  for (let y = 0; y < GARDEN_ROWS; y++) {
-    for (let x = 0; x < GARDEN_COLS; x++) sprite(ctx, uiGrid(grass[(x * 7 + y * 13 + ((x * y) % 3)) % 3]), gx + x * T, gy + y * T, 6);
-  }
+  sprite(ctx, sceneGrid(), gx, gy, 6);
   PLOT_TILES.forEach(([x, y], i) => {
     const p = state.plots[i];
     const px = gx + x * T;
@@ -90,9 +88,14 @@ export async function renderShowcase(state, now) {
     sprite(ctx, uiGrid('soil'), px, py, 6);
     if (p.crop) sprite(ctx, stageGrid(p.crop.cropId, G.cropStatus(p.crop, now).stage), px, py, 6);
   });
-  DECOR_TILES.forEach(([x, y], i) => {
-    const id = state.decorTiles[i];
-    if (id) sprite(ctx, decorGrid(id), gx + x * T, gy + y * T, 6);
+  // decorations in their nooks, back to front, with a soft shadow
+  const k = T / 16;
+  NOOKS.map((n, i) => [n, state.decorTiles[i]]).filter(([, id]) => id).sort((a, b) => a[0].y - b[0].y).forEach(([n, id]) => {
+    ctx.fillStyle = 'rgba(30, 50, 20, 0.28)';
+    ctx.beginPath();
+    ctx.ellipse(gx + n.x * k, gy + (n.y - 0.5) * k, 5 * k, 1.6 * k, 0, 0, Math.PI * 2);
+    ctx.fill();
+    sprite(ctx, decorGrid(id), gx + (n.x - 8) * k, gy + (n.y - 15) * k, 6);
   });
 
   // stats

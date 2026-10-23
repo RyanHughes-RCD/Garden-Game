@@ -8,6 +8,7 @@ import {
 } from '../data/config.js';
 import { CROPS, CROP_BY_ID, ULTRA_TROPHY } from '../data/crops.js';
 import { DECOR_BY_ID } from '../data/decorations.js';
+import { NOOKS, ZONE_FALLBACK, DECOR_SETS } from '../data/garden.js';
 import { VISITOR_TYPES, VISITOR_BY_ID } from '../data/visitors.js';
 
 export const TIER_BY_ID = Object.fromEntries(SEED_TIERS.map((t) => [t.id, t]));
@@ -290,12 +291,22 @@ export function placedCounts(state) {
   return counts;
 }
 
+// Matching sets: which pieces of each set are placed, and whether it is complete.
+export function setProgress(state) {
+  const placed = placedCounts(state);
+  return DECOR_SETS.map((set) => {
+    const have = set.items.filter((id) => placed[id]);
+    return { ...set, have, complete: have.length === set.items.length };
+  });
+}
+
 export function decorScore(state) {
   let score = 0;
   for (const [id, n] of Object.entries(placedCounts(state))) {
     const base = DECOR_BY_ID[id].score;
     for (let k = 0; k < n; k++) score += base * DUPLICATE_FALLOFF ** k;
   }
+  for (const set of setProgress(state)) if (set.complete) score += set.bonus;
   return Math.round(score);
 }
 
@@ -326,6 +337,36 @@ export function placeDecor(state, tileIdx, id, now) {
   if (availableDecor(state, id) < 1) return fail('None left to place');
   state.decorTiles[tileIdx] = id;
   return { ok: true, replaced: previous, awards: checkThresholds(state, now) };
+}
+
+// The free nook a decoration would be placed in: its favourite zone first,
+// then the zone fallbacks, in nook order. Null when the garden is full.
+export function bestNook(state, id) {
+  const d = DECOR_BY_ID[id];
+  for (const zone of ZONE_FALLBACK[d.spot]) {
+    const i = NOOKS.findIndex((n, k) => n.zone === zone && !state.decorTiles[k]);
+    if (i >= 0) return i;
+  }
+  return null;
+}
+
+// Put a stored decoration into the garden automatically.
+export function autoPlaceDecor(state, id, now) {
+  if (!DECOR_BY_ID[id]) return fail('Unknown decoration');
+  if (availableDecor(state, id) < 1) return fail('None left to place');
+  const nook = bestNook(state, id);
+  if (nook == null) return fail('Your garden is full. Tap a decoration to store or swap it.');
+  return { ...placeDecor(state, nook, id, now), nook };
+}
+
+// Move a placed decoration to another nook (swapping if that nook is taken).
+export function moveDecor(state, from, to) {
+  const n = state.decorTiles.length;
+  if (from < 0 || from >= n || to < 0 || to >= n) return fail('Bad spot');
+  if (!state.decorTiles[from]) return fail('Nothing to move');
+  if (from === to) return { ok: true };
+  [state.decorTiles[from], state.decorTiles[to]] = [state.decorTiles[to], state.decorTiles[from]];
+  return { ok: true };
 }
 
 export function removeDecor(state, tileIdx) {
